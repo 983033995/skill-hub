@@ -52,6 +52,7 @@
 | [planning/ROADMAP.md](./planning/ROADMAP.md) | 阶段与里程碑 | 里程碑调整 |
 | [planning/TASK_BOARD.md](./planning/TASK_BOARD.md) | 任务状态板 | 每个工作日/每个 PR |
 | [planning/PROGRESS.md](./planning/PROGRESS.md) | 进度追加日志 | 每次实质交付 |
+| [planning/HANDOFF.md](./planning/HANDOFF.md) | **跨会话交接（新对话必读）** | 阶段切换/换 Agent |
 
 ---
 

@@ -1,0 +1,18 @@
+# Profile: video — media production subset
+name: video
+description: Video, motion, captions, generative media skills
+include_name_globs:
+  - "*video*"
+  - "hyperframes*"
+  - "*caption*"
+  - "*motion*"
+  - "agnes-*"
+  - "*shot*"
+  - "minimax-*"
+keywords:
+  - video
+  - shot
+  - motion
+  - caption
+  - timeline
+  - render

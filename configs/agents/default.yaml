@@ -1,0 +1,37 @@
+# skill-hub default agent path mapping (template)
+# Copy/merge into ~/.skill-hub/config.yaml via `skill-hub init`
+
+version: 1
+
+canonical_dir: ~/.skill-hub/skills
+index_dir: ~/.skill-hub/index
+backup_dir: ~/.skill-hub/backups
+
+agents:
+  - id: workbuddy
+    skills_dir: ~/.workbuddy/skills
+    enabled: true
+  - id: claude-code
+    skills_dir: ~/.claude/skills
+    enabled: true
+  - id: codex
+    skills_dir: ~/.codex/skills
+    enabled: true
+  - id: agents
+    skills_dir: ~/.agents/skills
+    enabled: true
+  - id: cursor
+    skills_dir: ~/.cursor/skills
+    enabled: true
+
+router:
+  top_k: 5
+  engine: bm25
+
+sync:
+  mode: symlink
+  conflict: report
+  require_backup: true
+
+privacy:
+  telemetry: false

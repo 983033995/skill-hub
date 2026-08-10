@@ -1,0 +1,21 @@
+# Profile: coding — shrink router candidate pool for software tasks
+name: coding
+description: Frontend/backend/devops oriented skills
+include_name_globs:
+  - "frontend-*"
+  - "nextjs-*"
+  - "devops-*"
+  - "gitnexus-*"
+  - "playwright"
+  - "electron*"
+  - "*test*"
+  - "*debug*"
+# When include is empty at runtime, fall back to keywords:
+keywords:
+  - code
+  - frontend
+  - backend
+  - refactor
+  - test
+  - deploy
+  - git

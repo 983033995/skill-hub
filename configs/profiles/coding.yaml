@@ -7,9 +7,15 @@ include_name_globs:
   - "devops-*"
   - "gitnexus-*"
   - "playwright"
+  - "playwright*"
   - "electron*"
   - "*test*"
   - "*debug*"
+  - "agent-browser"
+  - "context7*"
+  - "find-docs"
+  - "copywriting"
+  - "copy-editing"
 # When include is empty at runtime, fall back to keywords:
 keywords:
   - code
@@ -19,3 +25,5 @@ keywords:
   - test
   - deploy
   - git
+  - docs
+  - browser

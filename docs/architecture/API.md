@@ -3,8 +3,8 @@
 | 字段 | 值 |
 |------|-----|
 | 状态 | Active |
-| 版本 | v0.1（设计约，实现跟随后标 Status） |
-| 最后更新 | 2026-08-10 |
+| 版本 | v0.1（实现已跟进 Phase 1–3） |
+| 最后更新 | 2026-08-10（Phase 3 MCP） |
 | 对齐 | `ARCHITECTURE.md` · `HARNESS.md` |
 
 > 约定：所有面向自动化的命令支持 `--json`。  
@@ -28,21 +28,7 @@ skill-hub [--json] [--config <path>] [--verbose] <command> [options]
 skill-hub doctor
 ```
 
-**JSON 结果示例**：
-
-```json
-{
-  "ok": true,
-  "node": "v22.22.2",
-  "canonical": { "path": "/Users/x/.skill-hub", "exists": true },
-  "agents": [
-    { "id": "workbuddy", "path": "/Users/x/.workbuddy/skills", "exists": true, "count": 76 }
-  ],
-  "issues": []
-}
-```
-
-**实现状态**：Planned（Phase 1）
+**实现状态**：Done（Phase 1）
 
 ---
 
@@ -52,17 +38,7 @@ skill-hub doctor
 skill-hub inventory [--agents workbuddy,cursor] [--out ./matrix.md]
 ```
 
-**输出字段**：
-
-| 字段 | 说明 |
-|------|------|
-| `agents[].count` | 各端 skill 数 |
-| `union_count` | 去重总数 |
-| `overlaps` | 两两交集 |
-| `only` | 仅单端 |
-| `conflicts` | 同名不同 hash |
-
-**实现状态**：Planned
+**实现状态**：Done（Phase 1）
 
 ---
 
@@ -72,9 +48,7 @@ skill-hub inventory [--agents workbuddy,cursor] [--out ./matrix.md]
 skill-hub backup [--out ~/.skill-hub/backups/<ts>]
 ```
 
-**结果**：`manifest.json` + 目录副本/归档。
-
-**实现状态**：Planned
+**实现状态**：Done（Phase 2）
 
 ---
 
@@ -84,9 +58,7 @@ skill-hub backup [--out ~/.skill-hub/backups/<ts>]
 skill-hub init [--force]
 ```
 
-创建 `~/.skill-hub` 骨架与默认 `config.yaml`（不覆盖已有配置，除非 `--force`）。
-
-**实现状态**：Planned
+**实现状态**：Done（Phase 1）
 
 ---
 
@@ -94,19 +66,14 @@ skill-hub init [--force]
 
 ```bash
 skill-hub ingest --sources <dir>[,<dir>...] \
-  [--prefer workbuddy] \
+  [--prefer <dir>] \
   [--conflict report|skip] \
-  [--dry-run]
+  [--dry-run] \
+  [--no-materialize]
 ```
 
-**行为**：
-
-1. 扫描 sources  
-2. 规范化 name  
-3. 写入 canonical（或 dry-run）  
-4. 产出 conflict 列表  
-
-**实现状态**：Planned
+**行为**：扫描 →（默认）物化到 `~/.skill-hub/skills` → 写 catalog。  
+**实现状态**：Done（Phase 1 catalog + 验收期 materialize）
 
 ---
 
@@ -116,127 +83,81 @@ skill-hub ingest --sources <dir>[,<dir>...] \
 skill-hub index [--rebuild]
 ```
 
-从 catalog 构建 router 索引。
-
-**实现状态**：Planned
+**实现状态**：Done（Phase 1）
 
 ---
 
 ### 1.7 `route`
 
 ```bash
-skill-hub route "<query>" [--top-k 5] [--profile coding] [--include-body]
+skill-hub route "<query>" [--top-k 5] [--profile coding|video] [--engine bm25] [--profiles-dir <dir>]
 ```
 
-**JSON 结果**：
+**JSON 结果**含：`engine`、`profile`、`profile_matched`、`candidate_count`、`results[]`。
 
-```json
-{
-  "query": "merge pdf files",
-  "top_k": 5,
-  "engine": "bm25",
-  "results": [
-    {
-      "name": "pdf",
-      "score": 12.4,
-      "description": "...",
-      "path": "/Users/x/.skill-hub/skills/pdf",
-      "reasons": ["name_token:pdf", "desc_hit:merge"]
-    }
-  ]
-}
-```
-
-**实现状态**：Planned
+**实现状态**：Done（Phase 1 BM25 + Phase 3 profile/engine）
 
 ---
 
 ### 1.8 `sync`
 
 ```bash
-skill-hub sync --dry-run
-skill-hub sync --apply [--require-backup]
+skill-hub sync --dry-run [--agents workbuddy] [--create-only]
+skill-hub sync --apply --yes --allow-write --backup-dir <dir> [--agents ...] [--create-only]
 ```
 
-**计划项类型**：`create_symlink` | `update_symlink` | `conflict` | `noop` | `remove_orphan`(默认关)
-
-**实现状态**：Planned
+**实现状态**：Done（Phase 2 + P2-08 create-only）
 
 ---
 
-### 1.9 `verify`
+### 1.9 `verify` / `restore`
 
 ```bash
 skill-hub verify
+skill-hub restore --from <backup> --dry-run
+skill-hub restore --from <backup> --apply --yes   # 需明确授权
 ```
 
-检查坏链与错误指向。
-
-**实现状态**：Planned
+**实现状态**：Done（Phase 2）
 
 ---
 
-## 2. 库 API（TypeScript，设计约）
+## 2. 库 API（TypeScript）
+
+### `@skill-hub/router`（Phase 3 扩展）
 
 ```ts
-// @skill-hub/core
-export interface SkillMeta {
-  name: string
-  description: string
-  path: string
-  hash: string
-  mtimeMs: number
-  keywords?: string[]
-}
+// 检索
+skillSearch({ query, topK?, profile?, engine? })
+skillFetch({ name, maxChars? })
+skillStats()
+skillInventorySummary({ agent? })
 
-export function scanSkills(root: string): Promise<SkillMeta[]>
-export function parseSkillMd(filePath: string): Promise<SkillMeta>
-export function detectConflicts(skills: SkillMeta[]): Conflict[]
-
-// @skill-hub/router
-export interface RouteQuery {
-  text: string
-  topK?: number
-  profile?: string
-}
-export interface RankedSkill extends SkillMeta {
-  score: number
-  reasons: string[]
-}
-export interface RouterEngine {
-  build(skills: SkillMeta[]): Promise<void>
-  query(q: RouteQuery): Promise<RankedSkill[]>
-}
-
-// @skill-hub/sync
-export interface SyncPlanItem {
-  agentId: string
-  skillName: string
-  action: 'create_symlink' | 'update_symlink' | 'conflict' | 'noop'
-  target: string
-  source: string
-  detail?: string
-}
-export function planSync(config: HubConfig): Promise<SyncPlanItem[]>
-export function applySync(plan: SyncPlanItem[], opts: { dryRun: boolean }): Promise<ApplyResult>
+// 引擎
+createRouterEngine({ engine })
+routeWithProfile({ text, skills, topK?, profile? })
+filterByProfile / loadProfile / parseProfileYaml
+createExternalRouter // stdin/stdout 协议 + 降级 bm25
 ```
-
-**稳定性**：v0.x 允许破坏性调整；1.0 起走 semver。
 
 ---
 
-## 3. MCP 接口（Phase 1 末 / Phase 2）
+## 3. MCP 接口（Phase 3）
 
-传输：stdio MCP。
+传输：**stdio MCP**。入口：`apps/mcp-server/dist/index.js`。
 
 | Tool | 参数 | 返回 |
 |------|------|------|
-| `skill_search` | `query: string`, `top_k?: number`, `profile?: string` | `RankedSkill[]` |
-| `skill_fetch` | `name: string`, `revision?: string` | `SKILL.md` 正文 + meta |
+| `skill_search` | `query: string`, `top_k?: number`, `profile?: string` | Top-K 元数据 |
+| `skill_fetch` | `name: string`, `max_chars?: number` | SKILL.md 正文 + meta |
 | `skill_stats` | — | catalog 计数、索引时间 |
 | `skill_inventory` | `agent?: string` | 摘要矩阵 |
 
-**安全**：MCP 默认只读；不提供 `sync --apply` 除非配置 `allow_write=true`。
+**安全**：MCP **只读**；不提供 `sync --apply` / `restore --apply`。
+
+集成步骤：`docs/ops/MCP_INTEGRATION.md`。
+
+**实现状态**：Done（P3-01）
 
 ---
 
@@ -255,7 +176,7 @@ agents:
     enabled: true
 router:
   top_k: 5
-  engine: bm25
+  engine: bm25   # bm25 | hybrid | external-*
 sync:
   mode: symlink
   conflict: report
@@ -264,7 +185,13 @@ privacy:
   telemetry: false
 ```
 
-完整字段以 `configs/` 模板与后续 JSON Schema 为准。
+Profile 模板：`configs/profiles/*.yaml`。
+
+外部引擎：
+
+- `SKILL_HUB_EXTERNAL_ENGINE_CMD`
+- `SKILL_HUB_EXTERNAL_ENGINE_ARGS`
+- `SKILL_HUB_PROFILES_DIR`
 
 ---
 
@@ -280,21 +207,10 @@ privacy:
 | `E_SYNC` | 分发失败 | 1 |
 | `E_BACKUP` | 备份失败 | 1 |
 | `E_NOT_FOUND` | skill 不存在 | 1 |
+| `E_INTERNAL` | 未分类内部错误 | 1 |
 
 ---
 
 ## 6. 版本与兼容
 
-| 接口层 | 兼容策略 |
-|--------|----------|
-| CLI 参数 | 弃用先警告一个次版本 |
-| JSON 字段 | 只增不改名；删字段走 MAJOR |
-| MCP tools | 增工具 MINOR；改语义 MAJOR |
-
----
-
-## 7. 变更记录
-
-| 版本 | 日期 | 说明 |
-|------|------|------|
-| v0.1 | 2026-08-10 | 设计约首版 |
+v0.x 允许破坏性调整；1.0 起走 semver。MCP 增工具 MINOR；改语义 MAJOR。

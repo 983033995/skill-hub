@@ -4,6 +4,7 @@
 |------|-----|
 | 状态 | Active |
 | 生成时间 | 2026-08-10 15:24 (GMT+8) |
+| 最后刷新 | 2026-08-10 21:50 (GMT+8) — Phase 3 MCP 完成 |
 | 适用 | 任意新对话 / 新 Agent / 换机继续 |
 | 项目根 | `/Volumes/13759427003/AI/skill-hub` |
 
@@ -23,11 +24,13 @@
 5. docs/planning/PROGRESS.md
 6. docs/planning/ROADMAP.md
 
-当前状态：Phase 0 文档与工程基线已完成；Phase 1 未开始（CLI 未实现）。
-下一任务：从 TASK_BOARD 的 P1-01 开始（pnpm monorepo 初始化）。
+当前状态：Phase 0–3 完成；Canonical 105；workbuddy create-only +33 且 agnes 已改指 hub；MCP 只读可用。
+备份 20260810-204134 双副本；评估 outputs/phase3-route-eval.md；集成 docs/ops/MCP_INTEGRATION.md。
+下一任务：各宿主配置 Trust MCP；或授权其它端 create-only；或 Phase 4。
 硬约束：
 - 未获我明确授权前，禁止对 ~/.workbuddy|~/.claude|~/.codex|~/.agents|~/.cursor 的 skills 做写入/删除/symlink apply
-- sync 默认 dry-run
+- sync 默认 dry-run；restore 仅可 dry-run，除非我明确授权 --apply
+- MCP 只读，禁止经 MCP apply
 - 遵守 HARNESS 与中文回复
 - shell 优先 rtk 前缀
 
@@ -89,18 +92,39 @@ Git：已 init，`main` 首提 `558af90`（message: `docs(harness): bootstrap Ph
 | 计划 | `ROADMAP.md` · `TASK_BOARD.md` · `PROGRESS.md` · **本 HANDOFF** |
 | ADR | `0001` 真源+symlink · `0002` TS monorepo · `0003` 可插拔路由 |
 | 配置模板 | `configs/agents/default.yaml` · `profiles/coding.yaml` · `video.yaml` |
-| 代码骨架 | `apps/*` `packages/*` 仅 `.gitkeep`，**无业务实现** |
+| 代码骨架 | monorepo 工具链 + 各包占位 export；**业务逻辑未实现** |
 | 测试 fixture | `tests/fixtures/skills/sample-skill/SKILL.md` |
+
+### 3.1b 已完成：P1-01 monorepo 工具链 ✅
+
+- 根：`package.json` / `pnpm-workspace.yaml` / `tsconfig*.json` / `vitest.config.ts` / ESLint + Prettier
+- 包：`@skill-hub/shared|core|router|sync`、`@skill-hub/cli`、`@skill-hub/mcp-server`
+- 门禁：`pnpm typecheck|build|test|lint` 可绿；CLI 仅 `--version` 占位
+
+### 3.1c 已完成：P1-02 `@skill-hub/shared` ✅
+
+- `SkillHubError` + 错误码/退出码、`expandUserPath`/`hubLayout`/`normalizeSkillName`、`createLogger`、`HubConfig`/`Result`
+- 源码：`packages/shared/src/{constants,errors,paths,logger,types,index}.ts` + 单测
+- 详见 `API.md` §5.1
+
+### 3.1d 已完成：Phase 1 MVP CLI ✅
+
+- CLI：doctor / inventory / init / ingest / index / route / sync --dry-run
+- 库：core scan/parse/catalog/conflict；router BM25；sync plan
+- 测试：33；本机 inventory union≈104、conflicts=17
+- 安全：`--apply` 抛 E_SYNC
 
 ### 3.2 未完成（故意未做）
 
-- [ ] pnpm/TS monorepo 真实初始化（`package.json` 等）
-- [ ] 任何 CLI 可执行逻辑
-- [ ] 对用户 home 下 skills 的写入 / symlink apply
-- [ ] MCP server 实现
+- [x] Phase 1 monorepo + shared + core + router + sync plan + CLI
+- [x] 本机只读 inventory 归档 `outputs/inventory-readonly.md`
+- [x] Phase 2 backup / apply / verify / restore（库 + CLI + 沙箱）
+- [x] 生产 backup 双副本 + restore dry-run + runbook
+- [x] workbuddy create-only apply（+33）+ agnes update（授权范围内）
+- [x] Phase 3 MCP skill_search/fetch/stats/inventory + profiles + 评估
+- [ ] 其它端 create-only / 真实目录换链 / restore --apply（**需授权**）
+- [ ] Phase 4 体验与团队化
 - [ ] ASF / neuro-skill 实际接入
-
-**实现状态口头约定**：文档里的 `skill-hub doctor/route/sync...` 是 **API 契约**，不是已上线命令。
 
 ---
 
@@ -149,16 +173,22 @@ skill-hub/                 # 本仓库（外置盘 AI）
 | 阶段 | 状态 | 说明 |
 |------|------|------|
 | Phase 0 文档基线 | **Done** | 2026-08-10 |
-| Phase 1 MVP CLI | **Next** | doctor/inventory/ingest/index/route/sync --dry-run |
-| Phase 2 生产同步 | Planned | backup + apply + verify |
+| Phase 1 MVP CLI | **Done** | 2026-08-10；sync apply 禁止 |
+| Phase 2 生产同步 | **Done（能力 + 生产 backup）** | 沙箱演练；生产 backup 双副本；apply 待授权 |
 | Phase 3 MCP/增强 | Planned | MCP、profiles、外部引擎 |
 | Phase 4 体验 | Planned | lint/GUI/团队 |
 
+**生产备份（可恢复）：**
+
+- 主：`~/.skill-hub/backups/20260810-204134`（~211M）
+- 镜像：`outputs/production-backups/20260810-204134`
+- 手册：`outputs/production-backup-restore-runbook.md`
+
 **看板下一票任务（按序）：**
 
-1. `P1-01` 初始化 pnpm monorepo 与 tsconfig  
-2. `P1-02` `@skill-hub/shared`  
-3. `P1-03` `@skill-hub/core` scan/parse  
+1. ~~Phase 1 / Phase 2 能力 / 生产 backup~~ **done**  
+2. 生产 apply：**需你明确授权**（否则不要对 ~/.*/skills 写入）  
+3. `P3-01` mcp-server  
 4. …见 `docs/planning/TASK_BOARD.md`
 
 进度只追加：`docs/planning/PROGRESS.md`  
@@ -263,10 +293,14 @@ ls docs/planning docs/product docs/architecture docs/ops
 | 日期 | 说明 |
 |------|------|
 | 2026-08-10 | 首版交接文档；供新对话继续 Phase 1 |
+| 2026-08-10 | P1-01 monorepo 完成后刷新：下一票 P1-02 |
+| 2026-08-10 | P1-02 shared 完成后刷新：下一票 P1-03 |
+| 2026-08-10 | Phase 1 MVP 完成后刷新：下一票 P2-01 backup |
+| 2026-08-10 | Phase 2 能力完成后刷新：下一票 P3-01 或授权生产 apply |
 
 ---
 
 ## 14. 给下一位 Agent 的最后一句话
 
-**不要重做 Phase 0。**  
-从 `TASK_BOARD` 的 `P1-01` 开工，先工具链再 core/router，**读写分离**：可以读用户 skills 盘点，写入只限本仓库与将来用户明确授权的 `~/.skill-hub` 初始化。
+**不要重做 Phase 0 / Phase 1。**  
+从 `TASK_BOARD` 的 `P2-01` 开工；**读写分离**仍然有效：默认只读 Agent skills；symlink apply 必须用户明确授权 + backup。

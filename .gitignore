@@ -35,3 +35,6 @@ backups/
 
 # Test artifacts
 .vitest/
+
+# Local agent workspace memory (not source of truth)
+.workbuddy/

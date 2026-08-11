@@ -2,7 +2,7 @@
 
 跨 **WorkBuddy / Claude Code / Codex / Cursor** 的本地 Skill **统一管理、智能选型与上下文节省** 工程。
 
-> 当前状态：**Phase 0 文档与工程规范基线已完成**；运行时 CLI/MCP 进入 Phase 1 开发。  
+> 当前状态：**Phase 0–3 已完成**（CLI + 生产 backup/create-only + MCP 只读）。  
 > 完整规范见 [`HARNESS.md`](./HARNESS.md) · 文档地图见 [`docs/INDEX.md`](./docs/INDEX.md)
 
 ---
@@ -48,18 +48,29 @@ tests/         单测、集成测、fixture skills
 
 ---
 
-## 规划中的 CLI（Phase 1）
+## CLI / MCP
+
+构建后通过 `node apps/cli/dist/index.js <cmd>` 调用。
 
 ```bash
-skill-hub doctor              # 检查环境与 agent 目录
-skill-hub ingest              # 扫描/导入 skill → 索引
-skill-hub route "任务描述"     # 输出 Top-K
-skill-hub sync --dry-run      # 预览分发
-skill-hub sync --apply        # 确认后写入 symlink
-skill-hub backup              # 备份各端 skills
+pnpm build
+node apps/cli/dist/index.js doctor
+node apps/cli/dist/index.js route "pdf merge" --top-k 5
+node apps/cli/dist/index.js route "frontend design" --profile coding --top-k 5
+node apps/cli/dist/index.js sync --dry-run --agents workbuddy --create-only
+# MCP（stdio 只读）
+node apps/mcp-server/dist/index.js
 ```
 
-实现进度见 ROADMAP，**以代码为准**。
+| 能力 | 状态 |
+|------|------|
+| doctor / inventory / init / ingest / index / route | Done |
+| backup / verify / restore / sync apply（闸门） | Done（Phase 2） |
+| create-only / `--agents` | Done |
+| MCP `skill_search|fetch|stats|inventory` | Done（Phase 3 只读） |
+| profile `coding` / `video` | Done |
+
+集成：[`docs/ops/MCP_INTEGRATION.md`](./docs/ops/MCP_INTEGRATION.md) · API：[`docs/architecture/API.md`](./docs/architecture/API.md)
 
 ---
 
@@ -68,6 +79,24 @@ skill-hub backup              # 备份各端 skills
 1. 阅读 `HARNESS.md` 与 `AGENTS.md`  
 2. 从 `docs/planning/TASK_BOARD.md` 领取任务  
 3. 所有对用户目录的写入先 dry-run  
+
+### 本机安装与门禁
+
+```bash
+cd /Volumes/13759427003/AI/skill-hub
+pnpm install
+pnpm typecheck
+pnpm build
+pnpm test
+pnpm lint
+```
+
+| 要求 | 版本 |
+|------|------|
+| Node | ≥ 20（推荐 22） |
+| pnpm | ≥ 9（锁 `packageManager: pnpm@10.27.0`） |
+
+验证：`node apps/cli/dist/index.js version` · `pnpm test`（fixture 闭环）。
 
 ---
 

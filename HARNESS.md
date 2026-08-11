@@ -303,7 +303,7 @@ ADR 模板：`docs/templates/ADR.md`
 | 项 | 值 |
 |----|----|
 | 文档基线版本 | v0.1 |
-| 代码实现状态 | **脚手架目录已就绪，核心逻辑未实现**（见 ROADMAP Phase 1） |
+| 代码实现状态 | **Phase 1+2 能力完成**；生产路径 symlink apply 须 --yes --allow-write + backup |
 | 主语言 | TypeScript / pnpm monorepo（锁定） |
 | 优先平台 | macOS + 外置卷 `/Volumes/13759427003` |
 | 用户真源规划路径 | `~/.skill-hub` |

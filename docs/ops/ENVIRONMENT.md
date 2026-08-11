@@ -4,7 +4,7 @@
 |------|-----|
 | 状态 | Active |
 | 版本 | v0.1 |
-| 最后更新 | 2026-08-10 |
+| 最后更新 | 2026-08-10（P1-01 monorepo） |
 | 对齐 | `HARNESS.md` |
 
 ---
@@ -54,13 +54,22 @@
 ```bash
 cd /Volumes/13759427003/AI/skill-hub
 
-# 后续 Phase 1 落地后：
-# pnpm install
-# pnpm build
-# pnpm test
+pnpm install
+pnpm typecheck
+pnpm build
+pnpm test
+pnpm lint
 ```
 
-当前 Phase 0：**无需 install 即可维护文档**。
+| 命令 | 说明 |
+|------|------|
+| `pnpm typecheck` | `tsc -b` 全仓 project references |
+| `pnpm build` | 输出各包 `dist/` |
+| `pnpm test` | Vitest（unit + 包内 `*.test.ts`） |
+| `pnpm lint` | ESLint flat config |
+
+> 仅改文档可不 install；改 TS 代码前需先 `pnpm install`。  
+> CLI 业务子命令仍在实现中：`node apps/cli/dist/index.js --version` 可验证脚手架。
 
 ---
 

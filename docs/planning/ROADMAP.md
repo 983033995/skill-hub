@@ -24,9 +24,9 @@
 | 阶段 | 名称 | 目标 | 状态 |
 |------|------|------|------|
 | **Phase 0** | 工程化文档基线 | HARNESS + PRD + 架构 + 计划可支撑开发 | **Done（2026-08-10）** |
-| **Phase 1** | MVP CLI | doctor/inventory/ingest/index/route/sync dry-run | Planned |
-| **Phase 2** | 多端生产同步 | backup + apply + verify + 真实多 Agent | Planned |
-| **Phase 3** | 路由增强与 MCP | hybrid/MCP/hooks 文档与集成 | Planned |
+| **Phase 1** | MVP CLI | doctor/inventory/ingest/index/route/sync dry-run | **Done（2026-08-10）** |
+| **Phase 2** | 多端生产同步 | backup + apply + verify + 沙箱演练 | **Done（能力 2026-08-10；生产 apply 待授权）** |
+| **Phase 3** | 路由增强与 MCP | hybrid/MCP/hooks 文档与集成 | **Done（2026-08-10）** |
 | **Phase 4** | 体验与团队化 | profiles、质量 lint、可选 GUI/git 协作 | Planned |
 
 ---
@@ -66,13 +66,13 @@
 
 **DoD**：
 
-- [ ] `pnpm test` 绿  
-- [ ] fixture 闭环：ingest→index→route  
-- [ ] 对本机 skill 只读 inventory 成功  
-- [ ] API.md 标注实现状态更新  
+- [x] `pnpm test` 绿（33 tests）  
+- [x] fixture 闭环：ingest→index→route  
+- [x] 对本机 skill 只读 inventory 成功（`outputs/inventory-readonly.md`）  
+- [x] API.md 标注实现状态更新  
 
 **依赖**：无（本地）  
-**风险**：外置盘 IO；Node 工具链初始化  
+**风险**：外置盘 IO；Node 工具链初始化 
 
 ---
 
@@ -88,10 +88,10 @@
 
 **DoD**：
 
-- [ ] require_backup 生效  
-- [ ] 冲突不覆盖  
-- [ ] 三端 verify 通过  
-- [ ] 用户确认后的真实 apply 有备份路径可查  
+- [x] require_backup 生效（CLI：`--backup-dir` + manifest）  
+- [x] 冲突不覆盖（真实目录 → conflict）  
+- [x] 沙箱 verify 通过（`outputs/phase2-sandbox-drill.md`）  
+- [ ] 用户确认后的真实多端 apply 有备份路径可查（待授权）  
 
 **依赖**：M1  
 **风险**：R1/R2（见运维风险）  
@@ -110,9 +110,9 @@
 
 **DoD**：
 
-- [ ] MCP 在至少 1 个宿主可用  
-- [ ] 10 条真实任务路由评估表  
-- [ ] token 节省粗测记录（相对全量 description）  
+- [x] MCP 在至少 1 个宿主可用（stdio Client 冒烟 + 配置文档 WorkBuddy/Cursor）  
+- [x] 10 条真实任务路由评估表（`outputs/phase3-route-eval.md`，Hit@1=10/10）  
+- [x] token 节省粗测记录（相对全量 description ≈ **97%** 字符层）  
 
 **依赖**：M2（可部分与 M2 并行：MCP 只读）  
 
@@ -204,3 +204,4 @@ cli 稳定 ↘ mcp(M3)
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | v0.1 | 2026-08-10 | 首版路线图；M0 完成 |
+| v0.2 | 2026-08-10 | Phase 2 能力完成；生产 apply 待授权 |

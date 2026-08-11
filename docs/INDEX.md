@@ -42,6 +42,7 @@
 |------|------|----------|
 | [ops/ENVIRONMENT.md](./ops/ENVIRONMENT.md) | 环境依赖与配置 | 依赖升级 |
 | [ops/OPERATIONS_AND_RISKS.md](./ops/OPERATIONS_AND_RISKS.md) | 运维流程、风险、回滚 | 运维策略变更 |
+| [ops/MCP_INTEGRATION.md](./ops/MCP_INTEGRATION.md) | MCP 宿主配置（WorkBuddy/Cursor/…） | MCP/集成变更 |
 
 ---
 

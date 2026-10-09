@@ -12,7 +12,7 @@
 
 跨 Agent 的 **Skill 统一管理 + 智能路由 + 省上下文** 工程。
 
-- 真源与分发：Canonical Store + 多端 symlink  
+- 真源与加载：Canonical Store + MCP 按需加载；多端 symlink 仅作显式兼容
 - 路由：按任务返回 Top-K skill  
 - 不把用户 100+ skill 全文灌进每次对话  
 

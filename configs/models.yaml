@@ -1,0 +1,55 @@
+# skill-hub 模型配置示例（可选增强层）
+#
+# 生效方式（三选一）：
+#   1. 复制本文件到 ~/.skill-hub/models.yaml
+#   2. 或保存为 ~/.skill-hub/models.json（JSON 格式，字段相同）
+#   3. 或用环境变量 SKILL_HUB_MODELS_CONFIG 指向任意路径的配置文件
+#
+# 不配置时系统以纯 BM25 确定性路由正常运行（状态显示 disabled），
+# 配置后语义路由/智能打标等增强能力即可使用。配置错误或服务不可达
+# 只会降级增强能力，不影响核心功能。
+#
+# 字段说明：
+#   default      默认使用的 provider id（缺省为列表第一个）
+#   providers    模型服务列表，每项：
+#     id          唯一标识（字母数字开头，可含 . _ -）
+#     type        openai-compatible | ollama
+#     base_url    服务根地址（OpenAI 兼容服务通常以 /v1 结尾）
+#     api_key     可选，支持 ${ENV_VAR} 引用环境变量，切勿明文提交到 Git
+#     model       对话模型名（可选，调用时也可显式指定）
+#     embed_model 向量模型名（可选，语义路由用）
+#     timeout_ms  可选，单次请求超时，默认 15000，范围 1000-120000
+#     headers     可选，额外请求头（值同样支持 ${ENV_VAR}）
+
+default: local
+
+providers:
+  # ── 本地 Ollama（零成本、零外发，推荐默认）──────────────
+  - id: local
+    type: ollama
+    base_url: http://127.0.0.1:11434
+    model: qwen3:8b
+    embed_model: bge-m3
+    timeout_ms: 30000
+
+  # ── OpenAI 官方 ─────────────────────────────────────
+  - id: openai
+    type: openai-compatible
+    base_url: https://api.openai.com/v1
+    api_key: ${OPENAI_API_KEY}
+    model: gpt-4o-mini
+    embed_model: text-embedding-3-small
+
+  # ── 本地 CLIProxyAPI（OpenAI 兼容协议）─────────────────
+  - id: cliproxy
+    type: openai-compatible
+    base_url: http://127.0.0.1:8786/v1
+    api_key: ${CLIPROXY_API_KEY}
+    model: gpt-5-mini
+
+  # ── 其他 OpenAI 兼容服务（DeepSeek 示例）────────────────
+  # - id: deepseek
+  #   type: openai-compatible
+  #   base_url: https://api.deepseek.com/v1
+  #   api_key: ${DEEPSEEK_API_KEY}
+  #   model: deepseek-chat

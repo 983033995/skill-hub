@@ -3,8 +3,8 @@
 | 字段 | 值 |
 |------|-----|
 | 状态 | Active |
-| 最后更新 | 2026-08-11（workbuddy 全套 replace-real apply 通过） |
-| 当前焦点 | **workbuddy catalog 105 全 symlink 真源化**；其它端 apply / MCP Trust / Phase 4 |
+| 最后更新 | 2026-10-09 |
+| 当前焦点 | **Phase 15 公开发布文档/社区规范/CI与隔离验收** |
 | 用法 | 领取任务时改 Status/Owner；完成时改 `done` 并写 PROGRESS |
 
 **状态**：`todo` | `in_progress` | `blocked` | `done` | `cancelled`
@@ -95,6 +95,109 @@
 | 生产 restore --apply | 备份已就绪，仅 dry-run 验证过 | script | 非故障勿授权；见 runbook |
 
 ---
+
+## Phase 4 — 可靠性与作用域
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P4-01 | symlink-aware scanner：目录链、坏链、文件链、环路 | done | agent | core 测试 + 真实只读 inventory |
+| P4-02 | `sync.mode=copy` 计划/apply/verify fallback | done | agent | 沙箱 copy 闭环 + conflict/backup 闸门 |
+| P4-03 | SkillMeta scope/provenance/revision 最小模型 | done | agent | 旧 catalog 兼容；同名胜出原因可解释 |
+| P4-04 | index freshness 与持久化语义收敛 | done | agent | catalog hash + bm25 artifact + stale route 建议 |
+| P4-05 | project/workspace sources 与 route scope 过滤 | done | agent | 显式本地 Skill source；只识别 SKILL.md，不导入普通 Markdown |
+| P4-06 | explain/path/history/overlay | done | agent | CLI/API 只读诊断；ingest/index/sync history |
+
+---
+
+## Phase 5 — 本地 Skill 统一接管（2026-09-05）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P5-01 | GitHub 同类项目对比与本机接管盘点 | done | agent | 引用一手资料；只读盘点和迁移报告 |
+| P5-02 | Hub 安装/更新来源追踪与本地改动保护 | done | agent | 本地/Git 来源直接安装 Hub；更新预览；沙箱测试 |
+| P5-03 | 导入/同步数据完整性与接管闭环 | done | agent | 增量导入不丢 catalog；附件漂移可检测；冲突不覆盖；沙箱验收 |
+
+
+| P5-04 | 原 symlink 全端接管（由 P6 按需加载替代） | cancelled | Owner + agent | 先归档3个精确异常链接，再新备份→导入→sync→verify；26冲突版本需选择 |
+
+## Phase 6 — Hub 按需加载与 OpenCode 零安装验收（2026-09-05）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P6-01 | 统一目录、分页正文及安全附件读取 | done | agent | CLI/MCP 共用；遍历与越界链接拒绝；长文可续读 |
+| P6-02 | CLI/MCP 运行时入口与使用引导 | done | agent | browse/read/files；精确指定、搜索后加载；不建议默认 sync |
+| P6-03 | OpenCode 真实零原生 Skill 验收及文档 | done | agent | MiniMax-M3 七场景/七断言通过；105项MCP读取；OPENCODE_HUB与报告 |
+
+原 P5-04 的 symlink 生产接管方案不再执行；用户明确以 Hub MCP 按需加载为目标。内容扫描、成本审计、使用反馈和语义检索按验收需要逐步补充，不将预留能力标为完成。
+
+## Phase 7 — Web 只读视图（2026-09-06）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P7-01 | apps/web 只读 HTTP API（复用 router hub-service，bind 127.0.0.1） | done | agent | 端点对齐 MCP 契约；无写操作 |
+| P7-02 | Web 前端 SPA：浏览/检索/详情/文件树/history | done | agent | 深色主题；Markdown 渲染；分页 |
+| P7-03 | 门禁 + 实机验证 + 文档同步（API/INDEX/ROADMAP/PROGRESS） | done | agent | typecheck/lint/test 通过 |
+| P8-01 | llm 模块：可选模型配置（models.yaml/json + 环境变量）、OpenAI 兼容与 Ollama Provider、降级 | done | agent | 未配置=disabled 不抛错；配置错误友好提示 |
+| P8-02 | Web /api/llm/status 端点 + 前端状态芯片 | done | agent | probe 健康探测；不影响只读主流程 |
+| P8-03 | configs/models.yaml 示例 + docs/architecture/MODELS.md + 门禁 | done | agent | build/lint/test 全绿（117） |
+
+## Phase 9 — Jev 可选语义路由（2026-09-23）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P9-01 | `external-typesafe` RouterEngine：Jev Choice 概率排序 | done | agent | 只发送 Skill 元数据；Top-K 概率排序；缺 Key/失败自动 BM25 |
+| P9-02 | CLI/MCP/Web 暴露 engine 选择与运行文档 | done | agent | `--engine external-typesafe`、MCP/Web `engine` 参数、API/ADR 同步 |
+| P9-03 | Jev 真实调用、BM25 对照与回退验收 | done | agent | 真实 catalog 调用通过；无 Key 回退通过；单测/构建/lint 通过 |
+
+## Phase 10 — Jev 决策信号与证据归档（2026-10-05）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P10-01 | 将外部 Jev 观察归档为设计输入 | done | agent | 研究文档、文档索引与验证边界齐全 |
+| P10-02 | Router 暴露 Choice 决策元数据 | done | agent | CLI/MCP/HTTP 一致性集成测试；构建CLI真实Jev响应通过 |
+| P10-03 | 配置优先级、回包契约与候选超限回退 | done | agent | 显式空 key 不被环境变量覆盖；异常回包拒绝；build/query 失败回退；136项测试及全量门禁 |
+
+## Phase 11 — 竞品调研与安全落地（2026-10-06）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P11-01 | 一手竞品/规范/决策项目调研与功能排序 | done | agent | GitHub README/API/规范入口归档；星数不作为质量证明 |
+| P11-02 | Skill 静态安全审计 core/CLI/MCP/Web | done | agent | 只读、不联网、不执行；CLI 策略码；三面一致性回归 |
+| P11-03 | 最小 `available_skills` manifest 导出 | todo | agent | OpenSkills 风格 name/description + Hub 读取提示；原子写与 dry-run |
+| P11-04 | pin/rollback/overlay/fork 工作流 | todo | agent | 来源 commit、tree hash、覆盖关系、失败恢复与迁移说明 |
+| P11-05 | Jev 评估集与 CI 发布门禁 | todo | agent | ≥30 条匿名任务、BM25 对照、延迟/费用/升级率、全量 workflow |
+
+## Phase 12 — OpenCode Hub-only 真实回归（2026-10-06）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P12-01 | 隔离 OpenCode 配置并将默认入口切到 Hub-only | done | agent | `~/.local/bin/opencode` 包装器生效；tools.skill=false；磁盘 Skill 发现=0；原配置和原目录保留 |
+| P12-02 | 当前 catalog stdio MCP 全量读取/Hash 验收 | done | agent | 110/110 Skill 正文和目录读取一致，无错误 |
+| P12-03 | OpenCode 真实模型八场景 + humanizer-zh 回归 | done | agent | 8/8 场景（含不指定 Skill 的内容自动路由）、Hub-only 工具轨迹、更新后新会话通过 |
+
+## Phase 13 — WorkBuddy 按需接入（2026-10-06）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P13-01 | 备份并正式停用用户Skill，保留其它工具 | done | agent | 147名称off、原生Skill拒绝配置、Hub MCP启用、自定义指引追加；备份hash核对 |
+| P13-02 | 配置入口stdio MCP验证 | done | agent | 11工具/110项catalog；内容搜索humanizer-zh和读取成功 |
+| P13-03 | WorkBuddy新会话模型回归 | todo | agent + user | 未重启运行中任务；UI不可操作；内置Skill发现不能宣称为0 |
+
+## Phase 14 — Qoder 正式接入（2026-10-06）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P14-01 | 备份Qoder配置，停用原生Skill并启用Hub | done | agent | skills.enabled=false；provider/其它17个MCP保留；99个Skill目录保留 |
+| P14-02 | Qoder配置和真实运行时初始化验证 | done | agent | 独立MCP搜索/读取通过；安装包runtime初始化skills=[]、Hub connected、11工具 |
+| P14-03 | Qoder真实模型及GUI新会话回归 | todo | agent + user | CLI返回Not logged in；GUI任务输入未成功；不宣称模型通过 |
+
+## Phase 15 — 开源发布（2026-10-09）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P15-01 | 公共README/状态/操作文档与开源社区规范 | done | agent | 中英README、MIT、贡献/安全/行为规范、API/状态真实对齐 |
+| P15-02 | CI/文档链接/隔离smoke与发布检查 | in_progress | agent | 本地门禁、无凭据历史扫描、fixture链路；远端Actions实际结果 |
+| P15-03 | 提交推送并将GitHub仓库公开 | in_progress | agent | 当前与远端SHA一致、visibility=public、安全和协作设置 |
 
 ## 看板维护规则
 

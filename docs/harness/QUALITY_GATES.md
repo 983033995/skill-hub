@@ -1,57 +1,18 @@
-# 质量门禁清单 — skill-hub
+# Quality gates
 
-| 字段 | 值 |
-|------|-----|
-| 状态 | Active |
-| 版本 | v0.1 |
-| 对齐 | `HARNESS.md` §6 |
+Status: Active · Updated: 2026-10-09 · Aligned with HARNESS §6
 
----
+| Gate | Command/evidence |
+|------|------------------|
+| Type checking | pnpm typecheck |
+| Build | pnpm build |
+| Lint | pnpm lint |
+| Unit/integration | pnpm test |
+| Local Markdown links | pnpm docs:check |
+| Compiled sandbox lifecycle/MCP | pnpm smoke |
+| Privacy/licensing | Review staged files and historical secret-pattern results; no credentials/private Skill library |
+| Behavior/docs | Current API/STATUS/ADR/PRD match implementation |
 
-## 1. 合并到 main 前（PR）
+CI uses synthetic fixtures and temp directories; localhost HTTP tests need port access. Live model/host scripts are opt-in, not offline PR gates. RTK is optional outside the maintainer's shell. Format only the touched files unless a formatting change is explicitly scoped.
 
-| # | 门禁 | 如何证明 |
-|---|------|----------|
-| G1 | typecheck 通过 | CI 或本地日志 |
-| G2 | lint 通过 | 同上 |
-| G3 | 相关测试通过 | `pnpm test` |
-| G4 | 无密钥进仓 | 自查 diff |
-| G5 | 文档同步 | PR 勾选 + 路径 |
-| G6 | 破坏性变更有 ADR | `docs/adr/*` |
-| G7 | 用户目录默认 dry-run | 代码审查 |
-
----
-
-## 2. Phase 出口门禁
-
-| Phase | 额外门禁 |
-|-------|----------|
-| P0 | 文档索引完整；规范自洽 |
-| P1 | fixture 闭环；只读 inventory 本机可跑 |
-| P2 | backup→apply→verify→rollback 演练通过 |
-| P3 | MCP 只读可用；评估表归档 |
-
----
-
-## 3. 发布门禁
-
-见 `docs/templates/RELEASE_CHECKLIST.md`。
-
----
-
-## 4. 文档质量门禁
-
-| # | 要求 |
-|---|------|
-| D1 | 头部含状态/版本/日期 |
-| D2 | 链到 HARNESS 或 INDEX |
-| D3 | 实现状态不与代码矛盾 |
-| D4 | 中文可读 + 英文标识符稳定 |
-
----
-
-## 5. 变更记录
-
-| 版本 | 日期 | 说明 |
-|------|------|------|
-| v0.1 | 2026-08-10 | 初版 |
+Publishing requires a real remote commit, public visibility confirmation and actual Actions outcomes. An unrun remote check cannot be called green. See [CONTRIBUTING](../../CONTRIBUTING.md), [SECURITY](../../SECURITY.md) and [release checklist](../templates/RELEASE_CHECKLIST.md).

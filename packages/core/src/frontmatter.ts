@@ -49,6 +49,23 @@ function parseSimpleYaml(block: string): Record<string, unknown> {
       i += 1;
       continue;
     }
+    // 只读取顶层元数据，避免 metadata.name 覆盖 Skill 名称。
+    if (/^\s/.test(line)) {
+      i += 1;
+      continue;
+    }
+
+    const multiline = line.match(/^([A-Za-z0-9_-]+):\s*([>|][-+]?)?\s*$/);
+    if (multiline && (multiline[1] === "description" || multiline[2])) {
+      const parts: string[] = [];
+      i += 1;
+      while (i < lines.length && (!lines[i]!.trim() || /^\s/.test(lines[i]!))) {
+        parts.push(lines[i]!.trim());
+        i += 1;
+      }
+      data[multiline[1]!] = parts.join(multiline[2]?.startsWith("|") ? "\n" : " ").trim();
+      continue;
+    }
 
     // keywords:
     //   - a
@@ -79,9 +96,7 @@ function parseSimpleYaml(block: string): Record<string, unknown> {
     // 行内数组: [a, b]
     if (value.startsWith("[") && value.endsWith("]")) {
       const inner = value.slice(1, -1).trim();
-      data[key] = inner
-        ? inner.split(",").map((s) => unquote(s.trim()))
-        : [];
+      data[key] = inner ? inner.split(",").map((s) => unquote(s.trim())) : [];
     } else if (value === "" || value === "null" || value === "~") {
       data[key] = null;
     } else if (value === "true" || value === "false") {
@@ -96,10 +111,7 @@ function parseSimpleYaml(block: string): Record<string, unknown> {
 }
 
 function unquote(s: string): string {
-  if (
-    (s.startsWith('"') && s.endsWith('"')) ||
-    (s.startsWith("'") && s.endsWith("'"))
-  ) {
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
     return s.slice(1, -1);
   }
   return s;

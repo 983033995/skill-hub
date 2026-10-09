@@ -44,4 +44,15 @@ describe("Bm25Router", () => {
     const hits = await r.query({ text: "frontend ui design page", topK: 2 });
     expect(hits[0]!.name).toBe("frontend-design");
   });
+
+  it("round-trips a persistent artifact", async () => {
+    const built = createBm25Router();
+    await built.build(skills);
+    const loaded = createBm25Router();
+    loaded.loadArtifact(built.toArtifact());
+
+    const hits = await loaded.query({ text: "merge pdf files", topK: 2 });
+    expect(hits[0]?.name).toBe("pdf-merge");
+    expect(loaded.toArtifact().docs).toHaveLength(skills.length);
+  });
 });

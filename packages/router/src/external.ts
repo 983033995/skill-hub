@@ -59,6 +59,7 @@ export class ExternalRouterEngine implements RouterEngine {
         description: s.description,
         keywords: s.keywords ?? [],
         path: s.path,
+        provenance: s.provenance ?? null,
       })),
     };
 

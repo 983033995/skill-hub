@@ -9,10 +9,17 @@ import {
   type PrivacyConfig,
   type RouterConfig,
   type RouterEngineId,
+  type SkillProvenance,
+  type SkillScope,
+  type SkillSourceMapping,
+  type SkillSourceType,
+  type SkillStatus,
   type SyncConfig,
   SkillHubError,
   expandUserPath,
   getDefaultConfigPath,
+  getDefaultHubHome,
+  hubLayout,
   resolveAbsolutePath,
 } from "@skill-hub/shared";
 
@@ -41,6 +48,7 @@ export function defaultHubConfig(homeLayout?: {
       { id: "agents", skills_dir: "~/.agents/skills", enabled: true },
       { id: "cursor", skills_dir: "~/.cursor/skills", enabled: true },
     ],
+    sources: [],
     router: { ...DEFAULT_ROUTER },
     sync: { ...DEFAULT_SYNC },
     privacy: { ...DEFAULT_PRIVACY },
@@ -52,9 +60,13 @@ export async function loadHubConfig(configPath?: string): Promise<HubConfig> {
   let raw: string;
   try {
     raw = await readFile(abs, "utf8");
-  } catch {
+  } catch (err) {
+    if (configPath || (err as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw new SkillHubError({ code: "E_CONFIG", message: `无法读取配置: ${abs}`, cause: err });
+    }
     // 无配置文件时返回内置默认（不写盘）
-    return defaultHubConfig();
+    const layout = hubLayout(getDefaultHubHome());
+    return defaultHubConfig(layout);
   }
 
   try {
@@ -81,6 +93,25 @@ export function resolveHubConfigPaths(config: HubConfig): HubConfig {
       ...a,
       skills_dir: expandUserPath(a.skills_dir),
     })),
+    sources: (config.sources ?? []).map((s) => ({
+      ...s,
+      path: expandUserPath(s.path),
+    })),
+  };
+}
+
+/** 将配置中的 Skill source 转换为 SkillMeta provenance。 */
+export function sourceMappingToProvenance(
+  source: SkillSourceMapping,
+  resolvedPath = expandUserPath(source.path),
+): SkillProvenance {
+  return {
+    scope: source.scope,
+    sourceType: source.source_type ?? "local",
+    sourceRef: source.source_ref ?? resolvedPath,
+    revision: source.revision,
+    status: source.status ?? "active",
+    overlayOf: source.overlay_of,
   };
 }
 
@@ -90,7 +121,9 @@ export function parseHubConfigYaml(raw: string): HubConfig {
   const root: Record<string, unknown> = {};
   let section: string | null = null;
   let currentAgent: Partial<AgentMapping> | null = null;
+  let currentSource: Partial<SkillSourceMapping> | null = null;
   const agents: AgentMapping[] = [];
+  const sources: SkillSourceMapping[] = [];
 
   const flushAgent = () => {
     if (currentAgent?.id && currentAgent.skills_dir) {
@@ -103,6 +136,25 @@ export function parseHubConfigYaml(raw: string): HubConfig {
     currentAgent = null;
   };
 
+  const flushSource = () => {
+    if (currentSource?.id && currentSource.path) {
+      sources.push({
+        id: String(currentSource.id),
+        path: String(currentSource.path),
+        scope: parseScope(currentSource.scope ?? "user"),
+        enabled: currentSource.enabled !== false,
+        source_type: parseSourceType(currentSource.source_type ?? "local"),
+        source_ref:
+          currentSource.source_ref === undefined ? undefined : String(currentSource.source_ref),
+        revision: currentSource.revision === undefined ? undefined : String(currentSource.revision),
+        status: parseStatus(currentSource.status ?? "active"),
+        overlay_of:
+          currentSource.overlay_of === undefined ? undefined : String(currentSource.overlay_of),
+      });
+    }
+    currentSource = null;
+  };
+
   for (const line of lines) {
     if (!line.trim() || line.trim().startsWith("#")) continue;
 
@@ -110,9 +162,17 @@ export function parseHubConfigYaml(raw: string): HubConfig {
     const top = line.match(/^([a-zA-Z0-9_]+):\s*(.*)$/);
     if (top && !line.startsWith(" ") && !line.startsWith("\t")) {
       flushAgent();
+      flushSource();
       const key = top[1]!;
       const val = top[2]!.trim();
-      if (val === "" || key === "agents" || key === "router" || key === "sync" || key === "privacy") {
+      if (
+        val === "" ||
+        key === "agents" ||
+        key === "sources" ||
+        key === "router" ||
+        key === "sync" ||
+        key === "privacy"
+      ) {
         section = key;
         if (key === "agents") {
           // list follows
@@ -146,6 +206,40 @@ export function parseHubConfigYaml(raw: string): HubConfig {
       continue;
     }
 
+    // list item under sources
+    if (section === "sources") {
+      const listStart = line.match(/^\s+-\s+id:\s*(.+)$/);
+      if (listStart) {
+        flushSource();
+        currentSource = {
+          id: unquote(listStart[1]!.trim()),
+          enabled: true,
+          scope: "user",
+          source_type: "local",
+          status: "active",
+        };
+        continue;
+      }
+      if (currentSource) {
+        const sourceField = line.match(
+          /^\s+(path|scope|enabled|source_type|source_ref|revision|status|overlay_of):\s*(.+)$/,
+        );
+        if (sourceField) {
+          const key = sourceField[1]! as keyof SkillSourceMapping;
+          const value = unquote(sourceField[2]!.trim());
+          if (key === "enabled") currentSource.enabled = value === "true";
+          else if (key === "scope") currentSource.scope = value as SkillScope;
+          else if (key === "source_type") currentSource.source_type = value as SkillSourceType;
+          else if (key === "status") currentSource.status = value as SkillStatus;
+          else if (key === "path") currentSource.path = value;
+          else if (key === "source_ref") currentSource.source_ref = value;
+          else if (key === "revision") currentSource.revision = value;
+          else if (key === "overlay_of") currentSource.overlay_of = value;
+        }
+      }
+      continue;
+    }
+
     // nested under router/sync/privacy
     if (section && section !== "agents") {
       const nest = line.match(/^\s+([a-zA-Z0-9_]+):\s*(.*)$/);
@@ -158,6 +252,7 @@ export function parseHubConfigYaml(raw: string): HubConfig {
     }
   }
   flushAgent();
+  flushSource();
 
   const routerBag = (root.router as Record<string, unknown>) ?? {};
   const syncBag = (root.sync as Record<string, unknown>) ?? {};
@@ -172,6 +267,7 @@ export function parseHubConfigYaml(raw: string): HubConfig {
     index_dir: String(root.index_dir ?? base.index_dir),
     backup_dir: String(root.backup_dir ?? base.backup_dir),
     agents: agents.length > 0 ? agents : base.agents,
+    sources: sources.length > 0 ? sources : (base.sources ?? []),
     router: {
       top_k: Number(routerBag.top_k ?? base.router.top_k) || 5,
       engine,
@@ -179,8 +275,7 @@ export function parseHubConfigYaml(raw: string): HubConfig {
     sync: {
       mode: (String(syncBag.mode ?? base.sync.mode) as SyncConfig["mode"]) || "symlink",
       conflict:
-        (String(syncBag.conflict ?? base.sync.conflict) as SyncConfig["conflict"]) ||
-        "report",
+        (String(syncBag.conflict ?? base.sync.conflict) as SyncConfig["conflict"]) || "report",
       require_backup:
         syncBag.require_backup === undefined
           ? base.sync.require_backup
@@ -188,18 +283,13 @@ export function parseHubConfigYaml(raw: string): HubConfig {
     },
     privacy: {
       telemetry:
-        privacyBag.telemetry === undefined
-          ? base.privacy.telemetry
-          : Boolean(privacyBag.telemetry),
+        privacyBag.telemetry === undefined ? base.privacy.telemetry : Boolean(privacyBag.telemetry),
     },
   };
 }
 
 function unquote(s: string): string {
-  if (
-    (s.startsWith('"') && s.endsWith('"')) ||
-    (s.startsWith("'") && s.endsWith("'"))
-  ) {
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
     return s.slice(1, -1);
   }
   return s;
@@ -210,4 +300,34 @@ function coerceScalar(v: string): string | number | boolean {
   if (v === "false") return false;
   if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);
   return v;
+}
+
+function parseScope(value: unknown): SkillScope {
+  if (value === "user" || value === "workspace" || value === "project") {
+    return value;
+  }
+  throw new SkillHubError({
+    code: "E_CONFIG",
+    message: `source.scope 无效: ${String(value)}（应为 user|workspace|project）`,
+  });
+}
+
+function parseSourceType(value: unknown): SkillSourceType {
+  if (value === "local" || value === "git" || value === "registry" || value === "generated") {
+    return value;
+  }
+  throw new SkillHubError({
+    code: "E_CONFIG",
+    message: `source.source_type 无效: ${String(value)}`,
+  });
+}
+
+function parseStatus(value: unknown): SkillStatus {
+  if (value === "active" || value === "draft" || value === "deprecated") {
+    return value;
+  }
+  throw new SkillHubError({
+    code: "E_CONFIG",
+    message: `source.status 无效: ${String(value)}`,
+  });
 }

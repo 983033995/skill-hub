@@ -1,0 +1,25 @@
+{
+  "name": "@skill-hub/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "skill-hub-web": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "public"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@skill-hub/router": "workspace:*",
+    "@skill-hub/shared": "workspace:*"
+  },
+  "license": "MIT"
+}

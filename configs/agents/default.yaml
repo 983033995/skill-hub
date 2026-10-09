@@ -24,6 +24,10 @@ agents:
     skills_dir: ~/.cursor/skills
     enabled: true
 
+# 可选的 Skill 盘点/导入来源；只扫描其中包含 SKILL.md 的目录。
+# sources 不等于同步目标，project/workspace source 不会默认同步到全局 Agent。
+sources: []
+
 router:
   top_k: 5
   engine: bm25

@@ -12,6 +12,21 @@ export interface ParsedArgs {
  * skill-hub [--json] [--verbose] [--config path] <command> [args] [--flag value]
  */
 export function parseArgs(argv: string[]): ParsedArgs {
+  const booleanFlags = new Set([
+    "dry-run",
+    "apply",
+    "yes",
+    "allow-write",
+    "force",
+    "rebuild",
+    "include-body",
+    "include-plugins",
+    "create-only",
+    "replace-real",
+    "no-materialize",
+    "no-canonical",
+    "require-backup",
+  ]);
   const flags: Record<string, string | boolean> = {};
   const positionals: string[] = [];
   let json = false;
@@ -52,7 +67,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       continue;
     }
     if (a === "--help" || a === "-h") {
-      command = command || "help";
+      command = "help";
       i += 1;
       continue;
     }
@@ -64,6 +79,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
         continue;
       }
       const key = a.slice(2);
+      if (booleanFlags.has(key)) {
+        flags[key] = true;
+        i += 1;
+        continue;
+      }
       const val = takeValue(a, argv[i + 1]);
       if (val === true) {
         flags[key] = true;

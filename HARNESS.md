@@ -1,9 +1,9 @@
 # HARNESS — skill-hub 工程规范
 
-> **状态**：Baseline v0.1  
-> **生效日期**：2026-08-10  
-> **适用范围**：本仓库全部文档、代码、脚本、配置与交付物  
-> **维护原则**：规范变更须走 ADR；文档与实现不一致时，以可运行代码 + 最新 ADR 为准，并在 24h 内回写本文件  
+> **状态**：Active · MIT source distribution v0.1.0
+> **生效日期**：2026-08-10 · 公开文档更新：2026-10-09
+> **适用范围**：本仓库全部文档、代码、脚本、配置与交付物
+> **维护原则**：规范变更须走 ADR；文档与实现不一致时，以可运行代码 + 最新 ADR 为准，并在 24h 内回写本文件
 
 ---
 
@@ -11,16 +11,18 @@
 
 **skill-hub** 提供跨 Agent（WorkBuddy / Claude Code / Codex / Cursor 等）的：
 
-1. **统一 Skill 真源与分发**（Canonical Store + Symlink/同步）
+1. **统一 Skill 真源与按需加载**（Canonical Store + MCP；Symlink/同步为显式兼容）
 2. **智能选型**（按任务路由 Top-K Skill）
-3. **上下文节省**（渐进披露：元数据常驻、正文按需）
+3. **上下文节省**（渐进披露：Hub 工具契约常驻，候选元数据与正文按需；见 ADR 0007）
 
 HARNESS 的目标不是“多写文档”，而是让后续开发具备：
 
-- 统一目录与命名  
-- 可执行的质量门槛  
-- 可追踪的协作与交付节奏  
-- 人/Agent 均可理解的入口契约  
+- 统一目录与命名
+- 可执行的质量门槛
+- 可追踪的协作与交付节奏
+- 人/Agent 均可理解的入口契约
+
+**边界**：skill-hub 只管理本地 Skill（目录内含 `SKILL.md`）；本地知识库、Obsidian Vault、普通 Markdown 属于独立 memory plane，不进入 Skill catalog。
 
 ---
 
@@ -113,20 +115,20 @@ skill-hub/
 |----|------|------|
 | 语言 | TypeScript (Node ≥ 20) | CLI/MCP 主栈；Python 可选 bindings |
 | 包管理 | pnpm workspace | monorepo |
-| 运行时目标 | macOS 优先 | 当前用户环境；Windows 二期 |
+| 运行时目标 | macOS 优先 | CI覆盖Linux/macOS；Windows待验证 |
 | 日志 | 结构化 JSON + 人类可读 | `shared/logger` |
 | 测试 | Vitest | unit + integration |
 | Lint/Format | ESLint + Prettier | CI 必须通过 |
 
 ### 4.2 代码原则
 
-1. **小模块、可测试**：路由、同步、解析解耦  
-2. **纯函数优先**：检索打分逻辑无 IO；IO 在 adapters  
-3. **错误可分类**：`SkillHubError` + `code`（见 API 错误码）  
-4. **禁止静默吞错**：失败须有可操作信息  
-5. **路径一律绝对路径规范化**后再写 symlink  
-6. **不递归删除**用户 skill 目录；破坏性操作需 `--yes` + 先 backup  
-7. **RTK**：本机 shell 调试时按用户惯例优先 `rtk` 前缀  
+1. **小模块、可测试**：路由、同步、解析解耦
+2. **纯函数优先**：检索打分逻辑无 IO；IO 在 adapters
+3. **错误可分类**：`SkillHubError` + `code`（见 API 错误码）
+4. **禁止静默吞错**：失败须有可操作信息
+5. **路径一律绝对路径规范化**后再写 symlink
+6. **不递归删除**用户 skill 目录；破坏性操作需 `--yes` + 先 backup
+7. **RTK**：本机维护按用户惯例使用 `rtk`；公开安装/CI不依赖RTK
 
 ### 4.3 Skill 内容规范（被管理对象）
 
@@ -172,13 +174,15 @@ fix(router): handle empty description skills
 
 ### 5.3 PR 门槛
 
+开源许可：仓库自身代码/文档采用MIT，第三方Skill保持原许可；见ADR 0009。root/workspace的package.json保留private=true，防止未经授权的npm发布，不代表GitHub私有。
+
 PR 描述必须包含：
 
-1. **动机**（问题/需求链接）  
-2. **变更摘要**  
-3. **测试说明**（命令 + 结果）  
-4. **风险与回滚**  
-5. **文档是否同步更新**（是/否 + 路径）  
+1. **动机**（问题/需求链接）
+2. **变更摘要**
+3. **测试说明**（命令 + 结果）
+4. **风险与回滚**
+5. **文档是否同步更新**（是/否 + 路径）
 
 模板：`docs/templates/PULL_REQUEST.md`
 
@@ -194,7 +198,8 @@ PR 描述必须包含：
 | Lint | `pnpm lint` 通过 |
 | 单测 | 变更相关包单测通过；新增逻辑必须有测 |
 | 集成测 | 触及路径/同步/索引的 PR 跑 integration |
-| 文档 | 行为变更同步更新 PRD/API/ROADMAP/PROGRESS 中对应项 |
+| 文档 | 行为变更同步 PRD/API/ROADMAP/PROGRESS，`pnpm docs:check`通过 |
+| 可复现 | `pnpm smoke`通过；只用合成fixture、临时Hub和沙箱Agent目标 |
 | 破坏性变更 | 有 ADR + 迁移说明 |
 | 安全 | 不提交密钥；用户目录操作有 dry-run |
 | 路由/同步 | 对 fixture skill 可演示最小闭环 |
@@ -245,11 +250,11 @@ PR 描述必须包含：
 
 ### 7.3 Agent 协作约束
 
-1. 先读 `AGENTS.md` 与目标文档，再改代码  
-2. 优先改 `packages/*`，避免在 docs 中“假装实现”  
-3. 文档任务可单独交付，但不得伪造“已实现 CLI”状态  
-4. 涉及用户 `~` 目录时：**默认 dry-run**，写入需显式确认  
-5. Shell 遵循用户 RTK 惯例  
+1. 先读 `AGENTS.md` 与目标文档，再改代码
+2. 优先改 `packages/*`，避免在 docs 中“假装实现”
+3. 文档任务可单独交付，但不得伪造“已实现 CLI”状态
+4. 涉及用户 `~` 目录时：**默认 dry-run**，写入需显式确认
+5. Shell 遵循用户 RTK 惯例
 
 ---
 
@@ -266,10 +271,10 @@ PR 描述必须包含：
 
 ### 8.2 发布清单
 
-1. 版本号与 `CHANGELOG.md`  
-2. `docs/planning/PROGRESS.md` 增加 release 记录  
-3. 迁移说明（若有）  
-4. 已知问题列表  
+1. 版本号与 `CHANGELOG.md`
+2. `docs/planning/PROGRESS.md` 增加 release 记录
+3. 迁移说明（若有）
+4. 已知问题列表
 
 模板：`docs/templates/RELEASE_CHECKLIST.md`
 
@@ -289,10 +294,10 @@ PR 描述必须包含：
 
 ## 10. 变更管理
 
-1. **规范小改**（笔误、澄清）：直接 `docs` PR  
-2. **规范大改**（目录/门禁/架构原则）：先 ADR，再改 HARNESS  
-3. **接口变更**：同步 `API.md` +  semver（MINOR/MAJOR）  
-4. **废弃**：标注 `Deprecated`、迁移窗口、删除日期  
+1. **规范小改**（笔误、澄清）：直接 `docs` PR
+2. **规范大改**（目录/门禁/架构原则）：先 ADR，再改 HARNESS
+3. **接口变更**：同步 `API.md` +  semver（MINOR/MAJOR）
+4. **废弃**：标注 `Deprecated`、迁移窗口、删除日期
 
 ADR 模板：`docs/templates/ADR.md`
 
@@ -303,19 +308,19 @@ ADR 模板：`docs/templates/ADR.md`
 | 项 | 值 |
 |----|----|
 | 文档基线版本 | v0.1 |
-| 代码实现状态 | **Phase 1+2 能力完成**；生产路径 symlink apply 须 --yes --allow-write + backup |
+| 代码实现状态 | managed生命周期、渐进读取、CLI/MCP/Web、静态审计及可选Jev已实现；[STATUS](docs/planning/STATUS.md)区分宿主验证限制 |
 | 主语言 | TypeScript / pnpm monorepo（锁定） |
-| 优先平台 | macOS + 外置卷 `/Volumes/13759427003` |
+| 优先平台 | macOS；源码checkout无固定路径要求，CI另覆盖Linux |
 | 用户真源规划路径 | `~/.skill-hub` |
 
 ---
 
 ## 12. 快速检查表（每次开工）
 
-- [ ] 读过本文件与 `docs/INDEX.md`  
-- [ ] 任务已写入/更新 `TASK_BOARD.md`  
-- [ ] 不直接删除用户 skill 目录  
-- [ ] 公共 API/行为变更已改文档  
-- [ ] 准备好 dry-run 证据再请求生产写入  
+- [ ] 读过本文件与 `docs/INDEX.md`
+- [ ] 任务已写入/更新 `TASK_BOARD.md`
+- [ ] 不直接删除用户 skill 目录
+- [ ] 公共 API/行为变更已改文档
+- [ ] 准备好 dry-run 证据再请求生产写入
 
 **Harness 一句话**：先规范、再实现；先 dry-run、再写入；先文档对齐、再合并。

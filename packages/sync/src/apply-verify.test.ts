@@ -1,4 +1,12 @@
-import { lstat, mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -186,5 +194,69 @@ describe("apply + verify sandbox", () => {
     const report = await verifySync(config, skills);
     expect(report.items.find((i) => i.skillName === "ui")?.kind).toBe("ok");
     expect(report.ok).toBe(true);
+  });
+
+  it("copies skills in copy mode and verifies content", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skill-hub-copy-"));
+    const canonPdf = path.join(root, "canonical", "pdf");
+    const agentDir = path.join(root, "agent-skills");
+    await mkdir(canonPdf, { recursive: true });
+    await mkdir(agentDir, { recursive: true });
+    await writeFile(
+      path.join(canonPdf, "SKILL.md"),
+      "---\nname: pdf\ndescription: Copy fixture\n---\nbody\n",
+    );
+    await writeFile(path.join(canonPdf, "reference.txt"), "reference\n");
+
+    const { parseSkillMd } = await import("@skill-hub/core");
+    const skill = await parseSkillMd(path.join(canonPdf, "SKILL.md"));
+    const config: HubConfig = {
+      version: 1,
+      canonical_dir: path.join(root, "canonical"),
+      index_dir: path.join(root, "index"),
+      backup_dir: path.join(root, "backups"),
+      agents: [{ id: "sandbox", skills_dir: agentDir, enabled: true }],
+      router: { top_k: 5, engine: "bm25" },
+      sync: { mode: "copy", conflict: "report", require_backup: true },
+      privacy: { telemetry: false },
+    };
+
+    const plan = await planSync(config, [skill], { dryRun: false });
+    expect(plan.items[0]?.action).toBe("create_copy");
+    const applied = await applySync(plan, { dryRun: false });
+    expect(applied.applied).toBe(1);
+
+    const target = path.join(agentDir, "pdf");
+    const st = await lstat(target);
+    expect(st.isSymbolicLink()).toBe(false);
+    const { readFile } = await import("node:fs/promises");
+    expect(await readFile(path.join(target, "reference.txt"), "utf8")).toBe("reference\n");
+
+    const secondPlan = await planSync(config, [skill], { dryRun: true });
+    expect(secondPlan.items[0]?.action).toBe("noop");
+
+    await rm(target, { recursive: true, force: true });
+    await symlink(canonPdf, target);
+    const updatePlan = await planSync(config, [skill], { dryRun: false });
+    expect(updatePlan.items[0]?.action).toBe("update_copy");
+    expect((await applySync(updatePlan, { dryRun: false })).applied).toBe(1);
+
+    await writeFile(path.join(target, "SKILL.md"), "local mutation\n");
+    const stash = path.join(root, "stash");
+    const replacePlan = await planSync(config, [skill], {
+      dryRun: false,
+      replaceReal: true,
+    });
+    expect(replacePlan.items[0]?.action).toBe("replace_real_copy");
+    expect(
+      (await applySync(replacePlan, { dryRun: false, replaceStashDir: stash })).applied,
+    ).toBe(1);
+    expect(await readFile(path.join(stash, "sandbox", "pdf", "SKILL.md"), "utf8")).toBe(
+      "local mutation\n",
+    );
+
+    const report = await verifySync(config, [skill]);
+    expect(report.ok).toBe(true);
+    expect(report.summary.ok).toBe(1);
   });
 });

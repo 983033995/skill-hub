@@ -6,6 +6,7 @@
     { "path": "packages/router" },
     { "path": "packages/sync" },
     { "path": "apps/cli" },
-    { "path": "apps/mcp-server" }
+    { "path": "apps/mcp-server" },
+    { "path": "apps/web" }
   ]
 }

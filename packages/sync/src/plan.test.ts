@@ -68,4 +68,45 @@ describe("planSync", () => {
     expect(byName.ok?.action).toBe("noop");
     expect(plan.dryRun).toBe(true);
   });
+
+  it("plans copy mode and recognizes an unchanged copied skill", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skill-hub-sync-copy-"));
+    const canonical = path.join(root, "canonical", "pdf");
+    const agentDir = path.join(root, "agent-skills");
+    await mkdir(canonical, { recursive: true });
+    await mkdir(agentDir, { recursive: true });
+    await writeFile(
+      path.join(canonical, "SKILL.md"),
+      "---\nname: pdf\ndescription: Copy fixture\n---\nbody\n",
+    );
+
+    const skills: SkillMeta[] = [
+      {
+        name: "pdf",
+        description: "Copy fixture",
+        path: canonical,
+        hash: "sha256:placeholder",
+        mtimeMs: 1,
+      },
+    ];
+
+    // 先用 parse 生成真实 hash，避免测试复制实现细节。
+    const { parseSkillMd } = await import("@skill-hub/core");
+    skills[0] = await parseSkillMd(path.join(canonical, "SKILL.md"));
+
+    const config: HubConfig = {
+      version: 1,
+      canonical_dir: path.join(root, "canonical"),
+      index_dir: path.join(root, "index"),
+      backup_dir: path.join(root, "backups"),
+      agents: [{ id: "test", skills_dir: agentDir, enabled: true }],
+      router: { top_k: 5, engine: "bm25" },
+      sync: { mode: "copy", conflict: "report", require_backup: true },
+      privacy: { telemetry: false },
+    };
+
+    const createPlan = await planSync(config, skills, { dryRun: true });
+    expect(createPlan.mode).toBe("copy");
+    expect(createPlan.items[0]?.action).toBe("create_copy");
+  });
 });

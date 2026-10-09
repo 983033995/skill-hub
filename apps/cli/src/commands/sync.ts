@@ -1,17 +1,14 @@
+import { lstat } from "node:fs/promises";
 import {
+  appendHistoryBatch,
   catalogToSkillMetas,
-  defaultHubConfig,
   loadHubConfig,
   readCatalog,
   resolveHubConfigPaths,
   scanSkills,
   type SkillMeta,
 } from "@skill-hub/core";
-import {
-  applySync,
-  assertBackupReady,
-  planSync,
-} from "@skill-hub/sync";
+import { applySync, assertBackupReady, filterGlobalSyncSkills, planSync } from "@skill-hub/sync";
 import {
   SkillHubError,
   getDefaultHubHome,
@@ -63,9 +60,7 @@ export async function runSync(options: {
 
   const dryRun = !wantApply;
   const config = resolveHubConfigPaths(
-    options.configPath
-      ? await loadHubConfig(options.configPath)
-      : await loadHubConfig().catch(() => defaultHubConfig()),
+    options.configPath ? await loadHubConfig(options.configPath) : await loadHubConfig(),
   );
 
   const requireBackup =
@@ -82,7 +77,10 @@ export async function runSync(options: {
           "sync --apply 要求备份：请先 skill-hub backup，并用 --backup-dir <path> 指向含 manifest.json 的备份目录（replace-real 强制需要）",
       });
     }
-    await assertBackupReady(backupDir);
+    await assertBackupReady(backupDir, {
+      ...config,
+      agents: config.agents.filter((a) => !options.agents?.length || options.agents.includes(a.id)),
+    });
   }
 
   const layout = hubLayout(getDefaultHubHome());
@@ -93,13 +91,26 @@ export async function runSync(options: {
   let skills: SkillMeta[] = [];
   try {
     skills = catalogToSkillMetas(await readCatalog(catalogPath));
-  } catch {
-    try {
-      skills = await scanSkills(layout.skills);
-    } catch {
-      skills = [];
-    }
+  } catch (err) {
+    const exists = await lstat(catalogPath).catch((e: NodeJS.ErrnoException) => {
+      if (e.code === "ENOENT") return null;
+      throw e;
+    });
+    if (exists) throw err;
+    const issues: Array<{ path: string; message: string }> = [];
+    skills = await scanSkills(config.canonical_dir, { onIssue: (issue) => issues.push(issue) });
+    if (issues.length)
+      throw new SkillHubError({
+        code: "E_SYNC",
+        message: `canonical 扫描不完整: ${JSON.stringify(issues)}`,
+      });
   }
+
+  // project/workspace source 是盘点/项目路由输入，不默认投影到全局 Agent。
+  // 旧 catalog 无 provenance 时按 user 兼容处理。
+  const filteredByScope = filterGlobalSyncSkills(skills);
+  const excludedByScope = filteredByScope.excluded;
+  skills = filteredByScope.skills;
 
   const plan = await planSync(config, skills, {
     dryRun,
@@ -118,9 +129,15 @@ export async function runSync(options: {
     : undefined;
 
   if (!wantApply) {
-    const createItems = plan.items.filter((i) => i.action === "create_symlink");
-    const replaceItems = plan.items.filter((i) => i.action === "replace_real");
-    const updateItems = plan.items.filter((i) => i.action === "update_symlink");
+    const createItems = plan.items.filter(
+      (i) => i.action === "create_symlink" || i.action === "create_copy",
+    );
+    const replaceItems = plan.items.filter(
+      (i) => i.action === "replace_real" || i.action === "replace_real_copy",
+    );
+    const updateItems = plan.items.filter(
+      (i) => i.action === "update_symlink" || i.action === "update_copy",
+    );
     const skippedItems = plan.items.filter((i) => i.action === "skipped");
     const result = {
       dryRun: true,
@@ -130,11 +147,13 @@ export async function runSync(options: {
       agents: options.agents ?? null,
       replace_stash_dir: replaceStashDir ?? null,
       summary: plan.summary,
+      mode: plan.mode,
       itemCount: plan.items.length,
       createCount: createItems.length,
       replaceCount: replaceItems.length,
       updateCount: updateItems.length,
       skippedCount: skippedItems.length,
+      excludedByScope,
       items: plan.items,
       note: `dry-run (${modeNote})：未修改任何路径。apply 需 --apply --yes --allow-write --backup-dir${options.replaceReal ? " --replace-real" : ""}${options.createOnly ? " --create-only" : ""}`,
     };
@@ -142,29 +161,28 @@ export async function runSync(options: {
     else {
       printLines(
         [
-          `sync plan (dry-run=true ${modeNote})`,
+          `sync plan (dry-run=true mode=${plan.mode} ${modeNote})`,
           `  create=${plan.summary.create} update=${plan.summary.update} replace=${plan.summary.replace} conflict=${plan.summary.conflict} noop=${plan.summary.noop} skipped=${skippedItems.length}`,
-          ...replaceItems.slice(0, 30).map(
-            (i) =>
-              `  [replace] ${i.agentId}:${i.skillName} → stash then → ${i.source}`,
-          ),
+          ...replaceItems
+            .slice(0, 30)
+            .map((i) => `  [replace] ${i.agentId}:${i.skillName} → stash then → ${i.source}`),
           replaceItems.length > 30 ? `  ... +${replaceItems.length - 30} more replaces` : "",
-          ...createItems.slice(0, 20).map(
-            (i) =>
-              `  [create] ${i.agentId}:${i.skillName} → ${i.target}`,
-          ),
+          ...createItems
+            .slice(0, 20)
+            .map((i) => `  [create] ${i.agentId}:${i.skillName} → ${i.target}`),
           createItems.length > 20 ? `  ... +${createItems.length - 20} more creates` : "",
           options.replaceReal
             ? `  note: replace-real 将把真实目录/文件迁入 ${replaceStashDir ?? "<backup-dir>/replaced-real"}`
             : "",
-          options.createOnly
-            ? `  note: create-only 已将非 create 项标为 skipped`
+          options.createOnly ? `  note: create-only 已将非 create 项标为 skipped` : "",
+          excludedByScope.length > 0
+            ? `  note: 已排除 ${excludedByScope.length} 个 project/workspace Skill（默认不投影到全局 Agent）`
             : "",
           result.note,
         ].filter(Boolean),
       );
     }
-    if (options.createOnly || options.replaceReal) return 0;
+    if (options.createOnly) return 0;
     return plan.summary.conflict > 0 ? 2 : 0;
   }
 
@@ -177,11 +195,13 @@ export async function runSync(options: {
     dryRun: false,
     require_backup: requireBackup,
     backup_dir: options.backupDir ?? null,
-    replace_stash_dir: options.replaceReal ? replaceStashDir ?? null : null,
+    replace_stash_dir: options.replaceReal ? (replaceStashDir ?? null) : null,
     createOnly: options.createOnly,
     replaceReal: options.replaceReal,
+    mode: plan.mode,
     agents: options.agents ?? null,
     plan_summary: plan.summary,
+    excludedByScope,
     apply: {
       applied: applied.applied,
       skipped: applied.skipped,
@@ -190,11 +210,29 @@ export async function runSync(options: {
     items: applied.items,
   };
 
+  if (applied.applied > 0) {
+    await appendHistoryBatch(
+      layout.history,
+      applied.items
+        .filter((item) => item.result === "applied")
+        .map((item) => ({
+          at: new Date().toISOString(),
+          type: "sync" as const,
+          name: item.skillName,
+          action: item.action,
+          agentId: item.agentId,
+          target: item.target,
+          path: item.source,
+          detail: { mode: plan.mode },
+        })),
+    );
+  }
+
   if (options.json) printJson(result);
   else {
     printLines(
       [
-        `sync APPLY (${modeNote})`,
+        `sync APPLY (mode=${plan.mode} ${modeNote})`,
         `  plan: create=${plan.summary.create} update=${plan.summary.update} replace=${plan.summary.replace} conflict=${plan.summary.conflict} noop=${plan.summary.noop}`,
         `  result: applied=${applied.applied} skipped=${applied.skipped} failed=${applied.failed}`,
         options.replaceReal && replaceStashDir ? `  stash: ${replaceStashDir}` : "",
@@ -211,6 +249,6 @@ export async function runSync(options: {
   }
 
   if (applied.failed > 0) return 1;
-  if (!options.createOnly && !options.replaceReal && plan.summary.conflict > 0) return 2;
+  if (!options.createOnly && plan.summary.conflict > 0) return 2;
   return 0;
 }

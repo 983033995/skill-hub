@@ -93,6 +93,7 @@ export function hubLayout(hubHome: string = getDefaultHubHome()): {
   backups: string;
   config: string;
   catalog: string;
+  history: string;
 } {
   const home = expandUserPath(hubHome);
   return {
@@ -102,6 +103,7 @@ export function hubLayout(hubHome: string = getDefaultHubHome()): {
     backups: path.join(home, "backups"),
     config: path.join(home, CONFIG_FILENAME),
     catalog: path.join(home, CATALOG_FILENAME),
+    history: path.join(home, "history.jsonl"),
   };
 }
 
@@ -128,7 +130,7 @@ export function normalizeSkillName(raw: string): string {
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-  if (!cleaned) {
+  if (!cleaned || cleaned === "." || cleaned === "..") {
     throw new SkillHubError({
       code: "E_PARSE",
       message: "skill 名称规范化后为空",

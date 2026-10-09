@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildCatalog,
+  catalogHash,
   catalogToSkillMetas,
   readCatalog,
   upsertSkills,
@@ -17,6 +18,12 @@ const sample: SkillMeta = {
   path: "/tmp/sample-skill",
   hash: "sha256:abc",
   mtimeMs: 1,
+  provenance: {
+    scope: "project",
+    sourceType: "local",
+    sourceRef: "/repo/.claude/skills",
+    revision: "abc",
+  },
 };
 
 describe("catalog", () => {
@@ -33,6 +40,8 @@ describe("catalog", () => {
     expect(raw).toContain("sample-skill");
     const loaded = await readCatalog(file);
     expect(loaded.skills["sample-skill"]?.name).toBe("sample-skill");
+    expect(loaded.skills["sample-skill"]?.provenance).toEqual(sample.provenance);
+    expect(catalogToSkillMetas(loaded)[0]?.provenance).toEqual(sample.provenance);
   });
 
   it("skip on hash conflict when requested", () => {
@@ -45,5 +54,33 @@ describe("catalog", () => {
     expect(skipped).toEqual(["sample-skill"]);
     expect(updated).toEqual([]);
     expect(catalog.skills["sample-skill"]?.hash).toBe("sha256:abc");
+  });
+
+  it("keeps legacy entries readable without provenance", () => {
+    const legacy = {
+      version: 1 as const,
+      updatedAt: new Date(0).toISOString(),
+      skills: {
+        legacy: {
+          name: "legacy",
+          description: "legacy skill",
+          path: "/tmp/legacy",
+          hash: "sha256:legacy",
+        },
+      },
+    };
+    const metas = catalogToSkillMetas(legacy);
+    expect(metas[0]?.name).toBe("legacy");
+    expect(metas[0]?.provenance).toBeUndefined();
+  });
+
+  it("catalog hash ignores updatedAt", () => {
+    const first = buildCatalog([sample], new Date(1));
+    const second = {
+      version: 1 as const,
+      updatedAt: new Date(2).toISOString(),
+      skills: { [sample.name]: { ...first.skills[sample.name]! } },
+    };
+    expect(catalogHash(first)).toBe(catalogHash(second));
   });
 });

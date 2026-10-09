@@ -1,3 +1,5 @@
+/* global console, process */
+
 import { readFileSync, writeFileSync } from "node:fs";
 import { skillSearch } from "../packages/router/dist/index.js";
 

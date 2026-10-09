@@ -11,7 +11,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -19,5 +21,6 @@
   "dependencies": {
     "@skill-hub/core": "workspace:*",
     "@skill-hub/shared": "workspace:*"
-  }
+  },
+  "license": "MIT"
 }

@@ -1,6 +1,11 @@
 import type { SkillMeta } from "@skill-hub/core";
 import { tokenize } from "./tokenize.js";
-import type { RankedSkill, RouteQuery, RouterEngine } from "./types.js";
+import type {
+  Bm25IndexArtifact,
+  RankedSkill,
+  RouteQuery,
+  RouterEngine,
+} from "./types.js";
 
 interface DocEntry {
   meta: SkillMeta;
@@ -52,6 +57,46 @@ export class Bm25Router implements RouterEngine {
     }
 
     this.avgdl = this.docs.length > 0 ? totalLen / this.docs.length : 0;
+  }
+
+  /** 将 BM25 运行时状态转换为可落盘、可重新加载的 JSON artifact。 */
+  toArtifact(): Bm25IndexArtifact {
+    return {
+      version: 1,
+      engine: "bm25",
+      k1: this.k1,
+      b: this.b,
+      avgdl: this.avgdl,
+      df: Object.fromEntries(this.df),
+      docs: this.docs.map((doc) => ({
+        meta: doc.meta,
+        tf: Object.fromEntries(doc.tf),
+        length: doc.length,
+      })),
+    };
+  }
+
+  /** 从 index/bm25.json 恢复索引，不读取 Skill 正文。 */
+  loadArtifact(artifact: Bm25IndexArtifact): void {
+    if (artifact.version !== 1 || artifact.engine !== "bm25") {
+      throw new Error("不支持的 BM25 index artifact 版本或 engine");
+    }
+    if (!Number.isFinite(artifact.avgdl) || artifact.avgdl < 0) {
+      throw new Error("BM25 index artifact.avgdl 无效");
+    }
+    this.df = new Map(Object.entries(artifact.df));
+    this.docs = artifact.docs.map((doc) => ({
+      meta: doc.meta,
+      tf: new Map(Object.entries(doc.tf)),
+      length: doc.length,
+    }));
+    this.avgdl = artifact.avgdl;
+  }
+
+  static fromArtifact(artifact: Bm25IndexArtifact): Bm25Router {
+    const router = new Bm25Router({ k1: artifact.k1, b: artifact.b });
+    router.loadArtifact(artifact);
+    return router;
   }
 
   async query(q: RouteQuery): Promise<RankedSkill[]> {

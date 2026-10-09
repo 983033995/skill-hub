@@ -1,3 +1,5 @@
+/* global console */
+
 import { readFileSync, writeFileSync } from "node:fs";
 
 const j = JSON.parse(readFileSync("outputs/phase3-route-eval.json", "utf8"));

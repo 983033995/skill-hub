@@ -1,17 +1,14 @@
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import {
-  SkillHubError,
-  normalizeSkillName,
-  resolveAbsolutePath,
-} from "@skill-hub/shared";
+import { SkillHubError, normalizeSkillName, resolveAbsolutePath } from "@skill-hub/shared";
 import { asString, asStringArray, splitFrontmatter } from "./frontmatter.js";
 import { sha256Content } from "./hash.js";
-import type { SkillMeta } from "./types.js";
+import type { SkillMeta, SkillProvenance } from "./types.js";
 
 export interface ParseSkillOptions {
   source?: string;
   agentId?: string;
+  provenance?: SkillProvenance;
   /** 缺省 name 时可用目录名回退 */
   fallbackName?: string;
 }
@@ -46,10 +43,7 @@ export async function parseSkillMd(
   const skillDir = path.dirname(absFile);
   const { data } = splitFrontmatter(content);
 
-  const rawName =
-    asString(data.name) ??
-    options.fallbackName ??
-    path.basename(skillDir);
+  const rawName = asString(data.name) ?? options.fallbackName ?? path.basename(skillDir);
 
   let name: string;
   try {
@@ -86,7 +80,10 @@ export async function parseSkillMd(
     mtimeMs: st.mtimeMs,
   };
   if (keywords) meta.keywords = keywords;
-  if (options.source) meta.source = options.source;
+  if (options.source ?? options.provenance?.sourceRef) {
+    meta.source = options.source ?? options.provenance?.sourceRef;
+  }
+  if (options.provenance) meta.provenance = { ...options.provenance };
   if (options.agentId) meta.agentsPresent = [options.agentId];
 
   return meta;

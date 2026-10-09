@@ -60,6 +60,15 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
 
+  apps/web:
+    dependencies:
+      '@skill-hub/router':
+        specifier: workspace:*
+        version: link:../../packages/router
+      '@skill-hub/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+
   packages/core:
     dependencies:
       '@skill-hub/shared':

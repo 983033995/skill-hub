@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>skill-hub · 本地技能库</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d9488'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3ES%3C/text%3E%3C/svg%3E"
+    />
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"
+    ></script>
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#/">
+        <span class="brand-mark">S</span>
+        <span class="brand-text">skill-hub <em>本地技能库</em></span>
+      </a>
+      <nav class="topnav">
+        <a href="#/" data-nav="skills">技能库</a>
+        <a href="#/inventory" data-nav="inventory">多端盘点</a>
+      </nav>
+      <div class="search-wrap">
+        <input
+          id="global-search"
+          type="search"
+          placeholder="用自然语言检索技能，如：修 PDF、生成视频…"
+          autocomplete="off"
+        />
+      </div>
+    </header>
+
+    <div class="statsbar" id="statsbar" hidden></div>
+
+    <main id="app" class="container">
+      <div class="loading">加载中…</div>
+    </main>
+
+    <footer class="footer">
+      <span id="footer-meta">skill-hub web · 只读视图 · 127.0.0.1</span>
+    </footer>
+  </body>
+</html>

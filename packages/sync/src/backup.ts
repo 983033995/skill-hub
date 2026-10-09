@@ -1,12 +1,9 @@
-import { access, readFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { access, readFile, stat } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import path from "node:path";
 import type { HubConfig } from "@skill-hub/shared";
-import {
-  SkillHubError,
-  expandUserPath,
-  resolveAbsolutePath,
-} from "@skill-hub/shared";
+import { SkillHubError, expandUserPath, resolveAbsolutePath } from "@skill-hub/shared";
 import {
   backupTimestamp,
   copyPathRecursive,
@@ -38,7 +35,7 @@ export async function createBackup(
 ): Promise<BackupManifest> {
   const now = options.now ?? new Date();
   const backupRoot = expandUserPath(options.backupRoot ?? config.backup_dir);
-  const backupDir = path.join(backupRoot, backupTimestamp(now));
+  const backupDir = path.join(backupRoot, `${backupTimestamp(now)}-${randomUUID().slice(0, 8)}`);
   const dryRun = options.dryRun === true;
 
   const agents: BackupAgentEntry[] = [];
@@ -50,7 +47,13 @@ export async function createBackup(
     try {
       await access(src, fsConstants.R_OK);
       exists = true;
-    } catch {
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT")
+        throw new SkillHubError({
+          code: "E_BACKUP",
+          message: `无法读取备份来源: ${src}`,
+          cause: err,
+        });
       exists = false;
     }
 
@@ -72,16 +75,12 @@ export async function createBackup(
       try {
         await copyPathRecursive(src, dest);
       } catch (err) {
-        agents.push({
-          id: agent.id,
-          path: src,
-          backupPath: dest,
-          exists: true,
-          entryCount,
-          skipped: true,
-          error: err instanceof Error ? err.message : String(err),
+        throw new SkillHubError({
+          code: "E_BACKUP",
+          message: `Agent 备份失败，不生成成功 manifest: ${agent.id}`,
+          details: { backupDir, source: src },
+          cause: err,
         });
-        continue;
       }
     }
 
@@ -184,12 +183,45 @@ export async function readBackupManifest(manifestOrDir: string): Promise<BackupM
 /**
  * 检查 backupDir 是否存在且含有效 manifest（用于 require_backup）。
  */
-export async function assertBackupReady(backupDir: string): Promise<BackupManifest> {
-  const manifest = await readBackupManifest(backupDir);
-  // 至少有一个 agent 成功备份或全部标记 skipped 也允许（空环境）
-  const anyCopied = manifest.agents.some((a) => a.exists && !a.skipped);
-  if (!anyCopied) {
-    // 允许：源本就全 missing；仍视为“已做 backup 流程”
+export async function assertBackupReady(
+  backupDir: string,
+  config?: HubConfig,
+): Promise<BackupManifest> {
+  const root = resolveAbsolutePath(backupDir);
+  const manifest = await readBackupManifest(root);
+  if (resolveAbsolutePath(manifest.backupDir) !== root)
+    throw new SkillHubError({
+      code: "E_BACKUP",
+      message: "manifest backupDir 与实际备份目录不匹配",
+    });
+  const assertSnapshot = async (file: string) => {
+    const rel = path.relative(root, resolveAbsolutePath(file));
+    if (!rel || rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel))
+      throw new SkillHubError({ code: "E_BACKUP", message: `快照路径不在备份目录内: ${file}` });
+    if (!(await stat(file)).isDirectory())
+      throw new SkillHubError({ code: "E_BACKUP", message: `快照不存在或不是目录: ${file}` });
+  };
+  for (const agent of manifest.agents) {
+    if (agent.exists && (agent.skipped || agent.error))
+      throw new SkillHubError({ code: "E_BACKUP", message: `Agent 备份不完整: ${agent.id}` });
+    if (agent.exists) await assertSnapshot(agent.backupPath);
+  }
+  if (manifest.canonical?.exists) await assertSnapshot(manifest.canonical.backupPath);
+  if (config) {
+    for (const agent of config.agents.filter((a) => a.enabled)) {
+      const record = manifest.agents.find(
+        (a) =>
+          a.id === agent.id &&
+          resolveAbsolutePath(a.path) === resolveAbsolutePath(agent.skills_dir),
+      );
+      if (!record)
+        throw new SkillHubError({ code: "E_BACKUP", message: `备份未覆盖同步目标: ${agent.id}` });
+      if (!record.exists && (await pathExists(expandUserPath(agent.skills_dir))))
+        throw new SkillHubError({
+          code: "E_BACKUP",
+          message: `目标在备份后出现，必须重新备份: ${agent.id}`,
+        });
+    }
   }
   return manifest;
 }

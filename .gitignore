@@ -38,3 +38,8 @@ backups/
 
 # Local agent workspace memory (not source of truth)
 .workbuddy/
+
+# Local code index and runtime state
+.codegraph/
+.skill-hub/
+*.backup

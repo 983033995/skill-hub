@@ -8,10 +8,40 @@ import type { ErrorCode } from "./errors.js";
 /** 路由引擎标识（可插拔）。 */
 export type RouterEngineId = "bm25" | "hybrid" | `external-${string}`;
 
+/** Skill 的生效范围；未标注的旧数据按 user 兼容处理。 */
+export type SkillScope = "user" | "workspace" | "project";
+
+export type SkillSourceType = "local" | "git" | "registry" | "generated";
+
+export type SkillStatus = "active" | "draft" | "deprecated";
+
+/** Skill 来源与版本线索。所有字段均可选，保证旧 catalog 可继续读取。 */
+export interface SkillProvenance {
+  scope?: SkillScope;
+  sourceType?: SkillSourceType;
+  sourceRef?: string;
+  revision?: string;
+  status?: SkillStatus;
+  overlayOf?: string;
+}
+
 export interface AgentMapping {
   id: string;
   skills_dir: string;
   enabled: boolean;
+}
+
+/** 盘点/导入来源；与 agents（同步目标）保持职责分离。 */
+export interface SkillSourceMapping {
+  id: string;
+  path: string;
+  scope: SkillScope;
+  enabled: boolean;
+  source_type?: SkillSourceType;
+  source_ref?: string;
+  revision?: string;
+  status?: SkillStatus;
+  overlay_of?: string;
 }
 
 export interface RouterConfig {
@@ -39,6 +69,8 @@ export interface HubConfig {
   index_dir: string;
   backup_dir: string;
   agents: AgentMapping[];
+  /** 可选以兼容旧配置；只用于 inventory/ingest，不是同步目标。 */
+  sources?: SkillSourceMapping[];
   router: RouterConfig;
   sync: SyncConfig;
   privacy: PrivacyConfig;

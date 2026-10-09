@@ -1,18 +1,21 @@
-import { lstat, mkdir, rename, rm } from "node:fs/promises";
+import { lstat, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import { SkillHubError } from "@skill-hub/shared";
-import { atomicSymlink, copyPathRecursive } from "./fs-utils.js";
+import {
+  assertPathAbsent,
+  atomicSymlink,
+  copyPathToEmpty,
+  movePathToEmpty,
+  uniqueSiblingPath,
+} from "./fs-utils.js";
+import { assertSafeSkillName, inspectProjectionIntegrity } from "./integrity.js";
 import type { ApplyOptions, ApplyResult, SyncPlan, SyncPlanItem } from "./types.js";
 
 /**
- * 执行 sync plan：create_symlink / update_symlink / replace_real。
- * conflict / noop / skipped 跳过；未开 replaceReal 时真实目录永不删除。
- * createOnly=true 时额外跳过 update_symlink / replace_real。
+ * 执行 sync plan：symlink 或 copy 模式的 create / update / replace。
+ * conflict / noop / skipped 跳过；create 动作只接受仍不存在的目标。
  */
-export async function applySync(
-  plan: SyncPlan,
-  options: ApplyOptions = {},
-): Promise<ApplyResult> {
+export async function applySync(plan: SyncPlan, options: ApplyOptions = {}): Promise<ApplyResult> {
   const dryRun = options.dryRun === true;
   const createOnly = options.createOnly === true;
   const results: ApplyResult["items"] = [];
@@ -28,7 +31,10 @@ export async function applySync(
     }
     if (
       createOnly &&
-      (item.action === "update_symlink" || item.action === "replace_real")
+      (item.action === "update_symlink" ||
+        item.action === "replace_real" ||
+        item.action === "update_copy" ||
+        item.action === "replace_real_copy")
     ) {
       results.push({
         ...item,
@@ -38,21 +44,18 @@ export async function applySync(
       skipped += 1;
       continue;
     }
-    if (
-      item.action !== "create_symlink" &&
-      item.action !== "update_symlink" &&
-      item.action !== "replace_real"
-    ) {
+    if (!isWritableAction(item.action)) {
       results.push({ ...item, result: "skipped" });
       skipped += 1;
       continue;
     }
 
-    if (item.action === "replace_real" && !dryRun && !options.replaceStashDir) {
+    if (isReplaceAction(item.action) && !dryRun && !options.replaceStashDir) {
       results.push({
         ...item,
         result: "failed",
-        error: "replace_real 需要 replaceStashDir（CLI 由 --backup-dir/replaced-real 提供）",
+        error:
+          "replace_real/replace_real_copy 需要 replaceStashDir（CLI 由 --backup-dir/replaced-real 提供）",
       });
       failed += 1;
       continue;
@@ -65,12 +68,15 @@ export async function applySync(
     }
 
     try {
-      await applyOne(item, options.replaceStashDir);
+      await applyOne(item, options.replaceStashDir, plan.canonicalDir);
       results.push({ ...item, result: "applied" });
       applied += 1;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      results.push({ ...item, result: "failed", error: message });
+      results.push({
+        ...item,
+        result: "failed",
+        error: err instanceof Error ? err.message : String(err),
+      });
       failed += 1;
     }
   }
@@ -78,79 +84,180 @@ export async function applySync(
   return { dryRun, applied, skipped, failed, items: results };
 }
 
-async function applyOne(item: SyncPlanItem, replaceStashDir?: string): Promise<void> {
-  if (item.action === "replace_real") {
+async function applyOne(
+  item: SyncPlanItem,
+  replaceStashDir: string | undefined,
+  canonicalDir: string | undefined,
+): Promise<void> {
+  const copyMode =
+    item.action === "create_copy" ||
+    item.action === "update_copy" ||
+    item.action === "replace_real_copy";
+  const integrity = await inspectProjectionIntegrity({
+    canonicalDir,
+    source: item.source,
+    target: item.target,
+    skillName: item.skillName,
+    expectedSkillHash: item.expectedSkillHash,
+    requireTreeHash: copyMode,
+  });
+  const safeItem = { ...item, source: integrity.source, target: integrity.target };
+
+  if (isReplaceAction(safeItem.action)) {
     if (!replaceStashDir) {
       throw new SkillHubError({
         code: "E_SYNC",
-        message: "replace_real 缺少 stash 目录",
-        details: { target: item.target },
+        message: "replace_real/replace_real_copy 缺少 stash 目录",
+        details: { target: safeItem.target },
       });
     }
-    const st = await lstat(item.target);
-    if (st.isSymbolicLink()) {
-      throw new SkillHubError({
-        code: "E_SYNC",
-        message: `replace_real 目标是 symlink，请用 update_symlink: ${item.target}`,
-        details: { target: item.target },
-      });
-    }
-    if (!st.isDirectory() && !st.isFile()) {
-      throw new SkillHubError({
-        code: "E_SYNC",
-        message: `replace_real 目标类型不支持: ${item.target}`,
-        details: { target: item.target },
-      });
-    }
-
-    const stashPath = path.join(replaceStashDir, item.agentId, item.skillName);
-    await stashRealPath(item.target, stashPath);
-    await atomicSymlink(item.source, item.target);
+    await replaceRealProjection(safeItem, replaceStashDir);
     return;
   }
 
-  // create / update
-  try {
-    const st = await lstat(item.target);
-    if (!st.isSymbolicLink() && (st.isDirectory() || st.isFile())) {
-      if (item.action === "update_symlink") {
-        throw new SkillHubError({
-          code: "E_SYNC",
-          message: `目标不是 symlink，拒绝更新: ${item.target}`,
-          details: { target: item.target },
-        });
-      }
-      if (st.isDirectory()) {
-        throw new SkillHubError({
-          code: "E_SYNC",
-          message: `目标是真实目录，禁止静默覆盖: ${item.target}`,
-          details: { target: item.target },
-        });
-      }
-      if (st.isFile()) {
-        await rm(item.target, { force: true });
-      }
-    } else if (st.isSymbolicLink()) {
-      await rm(item.target, { force: true });
-    }
-  } catch (err) {
-    if (err instanceof SkillHubError) throw err;
-    // ENOENT: ok for create
+  if (safeItem.action === "create_copy" || safeItem.action === "create_symlink") {
+    // 两个 helper 都会二次 lstat，并且只把 ENOENT 视作可创建。
+    await createProjection(safeItem);
+    return;
   }
 
+  if (safeItem.action === "update_copy" || safeItem.action === "update_symlink") {
+    await replaceSymlinkProjection(safeItem);
+    return;
+  }
+
+  throw new SkillHubError({
+    code: "E_SYNC",
+    message: `未知同步 action: ${safeItem.action}`,
+    details: { action: safeItem.action, target: safeItem.target },
+  });
+}
+
+async function replaceRealProjection(item: SyncPlanItem, replaceStashDir: string): Promise<void> {
+  const targetInfo = await lstat(item.target);
+  if (targetInfo.isSymbolicLink()) {
+    throw new SkillHubError({
+      code: "E_SYNC",
+      message: `replace_real 目标是 symlink，请使用 update action: ${item.target}`,
+      details: { target: item.target },
+    });
+  }
+  if (!targetInfo.isDirectory() && !targetInfo.isFile()) {
+    throw new SkillHubError({
+      code: "E_SYNC",
+      message: `replace_real 目标类型不支持: ${item.target}`,
+      details: { target: item.target },
+    });
+  }
+
+  assertSafeStashSegment(item.agentId, "agent id");
+  assertSafeSkillName(item.skillName);
+  const stashPath = path.join(replaceStashDir, item.agentId, item.skillName);
+  // 不覆盖任何既存 stash（包括坏链）；保留可追溯历史备份。
+  await assertPathAbsent(stashPath);
+  await movePathToEmpty(item.target, stashPath);
+
+  try {
+    await createProjection(item);
+  } catch (projectionError) {
+    try {
+      // 投影未创建时原目标必须回到原路径；若此时有第三方新建 target，宁可失败也不覆盖。
+      await movePathToEmpty(stashPath, item.target);
+    } catch (restoreError) {
+      throw new SkillHubError({
+        code: "E_SYNC",
+        message: `创建投影失败，且无法恢复原目标: ${item.target}`,
+        details: { target: item.target, stashPath },
+        cause: new AggregateError([projectionError, restoreError]),
+      });
+    }
+    throw projectionError;
+  }
+}
+
+/** update 只替换计划中已观察到的 symlink；失败时恢复旧链。 */
+async function replaceSymlinkProjection(item: SyncPlanItem): Promise<void> {
+  const targetInfo = await lstat(item.target);
+  if (!targetInfo.isSymbolicLink()) {
+    throw new SkillHubError({
+      code: "E_SYNC",
+      message: `目标不再是 symlink，拒绝 update: ${item.target}`,
+      details: { target: item.target },
+    });
+  }
+
+  const rollbackPath = uniqueSiblingPath(item.target, "rollback");
+  await assertPathAbsent(rollbackPath);
+  await rename(item.target, rollbackPath);
+  try {
+    await createProjection(item);
+  } catch (projectionError) {
+    try {
+      await assertPathAbsent(item.target);
+      await rename(rollbackPath, item.target);
+    } catch (restoreError) {
+      throw new SkillHubError({
+        code: "E_SYNC",
+        message: `更新投影失败，且无法恢复旧 symlink: ${item.target}`,
+        details: { target: item.target, rollbackPath },
+        cause: new AggregateError([projectionError, restoreError]),
+      });
+    }
+    throw projectionError;
+  }
+
+  try {
+    await rm(rollbackPath, { force: false });
+  } catch (err) {
+    throw new SkillHubError({
+      code: "E_SYNC",
+      message: `投影已更新，但无法清理旧 symlink: ${rollbackPath}`,
+      details: { target: item.target, rollbackPath },
+      cause: err,
+    });
+  }
+}
+
+async function createProjection(item: SyncPlanItem): Promise<void> {
+  if (
+    item.action === "create_copy" ||
+    item.action === "update_copy" ||
+    item.action === "replace_real_copy"
+  ) {
+    await copyPathToEmpty(item.source, item.target);
+    return;
+  }
   await atomicSymlink(item.source, item.target);
 }
 
-/** 先 rename，失败则 copy+rm，确保原路径消失后再建链。 */
-async function stashRealPath(target: string, stashPath: string): Promise<void> {
-  await mkdir(path.dirname(stashPath), { recursive: true });
-  await rm(stashPath, { recursive: true, force: true }).catch(() => undefined);
-  try {
-    await rename(target, stashPath);
-    return;
-  } catch {
-    // cross-device 等：内容备份后删除源
+function isWritableAction(action: SyncPlanItem["action"]): boolean {
+  return (
+    action === "create_symlink" ||
+    action === "update_symlink" ||
+    action === "replace_real" ||
+    action === "create_copy" ||
+    action === "update_copy" ||
+    action === "replace_real_copy"
+  );
+}
+
+function isReplaceAction(action: SyncPlanItem["action"]): boolean {
+  return action === "replace_real" || action === "replace_real_copy";
+}
+
+function assertSafeStashSegment(value: string, label: string): void {
+  if (
+    !value ||
+    value === "." ||
+    value === ".." ||
+    value.includes("/") ||
+    value.includes("\\") ||
+    value.includes("\0")
+  ) {
+    throw new SkillHubError({
+      code: "E_SYNC",
+      message: `非法 ${label}，拒绝构造 stash 路径: ${JSON.stringify(value)}`,
+      details: { value, label },
+    });
   }
-  await copyPathRecursive(target, stashPath);
-  await rm(target, { recursive: true, force: true });
 }

@@ -4,7 +4,7 @@
 |------|-----|
 | 状态 | Active |
 | 版本 | v0.1 |
-| 最后更新 | 2026-08-10 |
+| 最后更新 | 2026-08-16 |
 | 对齐 | `HARNESS.md` · `PRD.md` |
 
 ---
@@ -36,6 +36,8 @@
 11. skill-hub verify
 12. 抽样 route 10 条任务并记录到 PROGRESS
 ```
+
+如果使用项目/工作区 Skill，先在 `config.yaml` 声明 `sources` 并用 `inventory --sources ... --scope ...` 盘点；`sources` 只接受包含 `SKILL.md` 的本地目录，普通 Markdown/知识库不在操作范围内。project/workspace Skill 默认不会被全局 sync。
 
 ### 2.2 日常新增 skill
 
@@ -91,8 +93,8 @@ cp -a "$HOME/.claude/skills" "$DEST/claude-skills" 2>/dev/null || true
 |------|------|-----------|
 | 目录健康 | 每次 sync 前 | `doctor` |
 | 链接完好 | sync 后 | `verify` |
-| 索引新鲜度 | skill 变更后 | `index`；对比 catalogHash |
-| 外置盘挂载 | 开发日 | 访问 `/Volumes/13759427003/AI/skill-hub` |
+| 索引新鲜度 | skill 变更后 | `index`；route 对比 catalogHash 并加载 `bm25.json`，过期时提示 rebuild |
+| 外置盘挂载 | 开发日 | 访问 `/path/to/skill-hub` |
 
 ---
 
@@ -118,7 +120,7 @@ cp -a "$HOME/.claude/skills" "$DEST/claude-skills" 2>/dev/null || true
 | 级别 | 定义 | 响应 |
 |------|------|------|
 | P0 | 用户 skill 数据丢失/大面积错误替换 | 立即停 sync；从最近 backup 恢复；写事故记录 |
-| P1 | 多端 Agent 无法加载 skill | verify/verify；修复坏链；临时回退 copy |
+| P1 | 多端 Agent 无法加载 skill | verify；修复坏链；在确认 backup 后显式回退 copy |
 | P2 | 路由不准但数据完好 | 调 description/引擎；不回滚文件 |
 | P3 | 文档/开发体验问题 | 正常迭代 |
 
@@ -146,11 +148,11 @@ cp -a "$HOME/.claude/skills" "$DEST/claude-skills" 2>/dev/null || true
 
 ---
 
-## 8. 已知限制（v0.1 文档阶段）
+## 8. 已知限制（v0.3）
 
-- CLI 未实现，SOP 命令为**契约**  
-- 回滚自动化未实现，依赖手工 + 未来 `restore` 命令  
-- Windows 未作为测试目标  
+- `index` 写入 freshness marker + 可加载 `bm25.json`；profile/scope 过滤仍会按过滤后候选在内存构建 BM25
+- project/workspace Skill 默认不全局 sync；`explain/path/history` 已提供只读来源、投影与生命周期诊断
+- Windows 未作为测试目标
 
 ---
 
@@ -159,3 +161,8 @@ cp -a "$HOME/.claude/skills" "$DEST/claude-skills" 2>/dev/null || true
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | v0.1 | 2026-08-10 | 首版运维与风险 |
+
+
+## Phase 6 运维调整
+
+默认新增/更新流程为 Hub install/update → catalog/index → 下次 MCP 按需读取，不执行 sync。上文 symlink 首次迁移和日常同步保留为兼容模式。OpenCode 专用入口可通过退出后普通启动回退；无需移动或删除原有 Skill 目录。加载内容不授权执行，正文读取限制不能替代内容风险扫描。

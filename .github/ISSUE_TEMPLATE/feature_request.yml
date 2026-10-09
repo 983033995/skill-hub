@@ -1,0 +1,18 @@
+name: Feature request
+description: Describe a user problem and a bounded change.
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: What task is currently blocked? Include the existing workaround.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior and acceptance
+      description: Include scope, non-goals and how the behavior could be tested.
+    validations:
+      required: true

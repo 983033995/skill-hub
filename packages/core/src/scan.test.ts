@@ -1,3 +1,5 @@
+import { mkdir, mkdtemp, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -34,5 +36,30 @@ describe("parseSkillMd / scanSkills", () => {
     await expect(parseSkillMd(path.join(fixtures, "bad-skill/SKILL.md"))).rejects.toBeInstanceOf(
       SkillHubError,
     );
+  });
+
+  it("follows directory symlinks, skips broken/file links, and avoids cycles", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skill-hub-scan-links-"));
+    const canonical = path.join(root, "canonical", "linked-skill");
+    const realDir = path.join(root, "real-dir");
+    await mkdir(canonical, { recursive: true });
+    await writeFile(
+      path.join(canonical, "SKILL.md"),
+      "---\nname: linked-skill\ndescription: A linked fixture skill\n---\n",
+    );
+    await mkdir(realDir, { recursive: true });
+    await writeFile(
+      path.join(realDir, "SKILL.md"),
+      "---\nname: real-skill\ndescription: A real fixture skill\n---\n",
+    );
+
+    await symlink(canonical, path.join(root, "linked-skill"));
+    await symlink(path.join(root, "missing"), path.join(root, "broken-link"));
+    await symlink(path.join(root, "plain.txt"), path.join(root, "file-link"));
+    await writeFile(path.join(root, "plain.txt"), "not a skill directory\n");
+    await symlink(root, path.join(root, "cycle"));
+
+    const skills = await scanSkills(root);
+    expect(skills.map((skill) => skill.name)).toEqual(["linked-skill", "real-skill"]);
   });
 });

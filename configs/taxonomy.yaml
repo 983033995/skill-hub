@@ -1,0 +1,24 @@
+# skill-hub taxonomy 模板
+# 复制到 ~/.skill-hub/taxonomy.yaml 即可整体覆盖内置默认分类；
+# 或用环境变量 SKILL_HUB_TAXONOMY 指定其他路径。
+# 规则：name_globs 命中 +3，keywords 命中 name +2 / description +1；
+# 每个 skill 取 Top 3 标签，无命中归入“其他”。
+tags:
+  - id: video
+    label: 视频与动画
+    name_globs:
+      - "*video*"
+      - "*hyperframes*"
+      - "*animation*"
+    keywords:
+      - 视频
+      - 动画
+      - 分镜
+  - id: docs
+    label: 文档与办公
+    name_globs:
+      - "*pdf*"
+      - "*docx*"
+    keywords:
+      - 文档
+      - 排版

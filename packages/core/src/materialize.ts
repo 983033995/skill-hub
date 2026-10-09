@@ -1,175 +1,152 @@
-/**
- * 将 skill 目录物化到 Canonical Store（~/.skill-hub/skills/<name>）。
- * 只写 hub 目录，不修改各 Agent skills。
- */
-
-import { access, cp, mkdir, readFile, rm } from "node:fs/promises";
+/** 物化 Skill 全目录；冲突默认保留原件，替换前归档且失败恢复。 */
+import { cp, lstat, mkdir, mkdtemp, rename, rm, realpath } from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { SkillHubError, normalizeSkillName, resolveAbsolutePath } from "@skill-hub/shared";
-import { sha256Content } from "./hash.js";
+import { hashSkillTree } from "./tree.js";
 import { parseSkillMd } from "./parse.js";
 import type { SkillMeta } from "./types.js";
 
 export interface MaterializeOptions {
-  /** 覆盖已存在且 hash 不同的目录（默认 false：跳过并记入 skipped） */
   force?: boolean;
+  dryRun?: boolean;
+  backupDir?: string;
 }
-
 export interface MaterializeResult {
   canonicalDir: string;
   copied: string[];
   skipped: Array<{ name: string; reason: string }>;
   failed: Array<{ name: string; error: string }>;
+  backups: Array<{ name: string; path: string }>;
   skills: SkillMeta[];
 }
 
-async function readSkillHash(skillDir: string): Promise<string | null> {
-  const skillMd = path.join(skillDir, "SKILL.md");
-  try {
-    const content = await readFile(skillMd, "utf8");
-    return sha256Content(content);
-  } catch {
-    try {
-      const content = await readFile(path.join(skillDir, "skill.md"), "utf8");
-      return sha256Content(content);
-    } catch {
-      return null;
-    }
-  }
-}
-
-/**
- * 复制 selected skills 到 canonicalDir/<name>，并返回以 canonical 路径为准的 SkillMeta 列表。
- */
 export async function materializeToCanonical(
   skills: SkillMeta[],
   canonicalDir: string,
   options: MaterializeOptions = {},
 ): Promise<MaterializeResult> {
   const destRoot = resolveAbsolutePath(canonicalDir);
-  await mkdir(destRoot, { recursive: true });
-
-  const copied: string[] = [];
-  const skipped: MaterializeResult["skipped"] = [];
-  const failed: MaterializeResult["failed"] = [];
-  const out: SkillMeta[] = [];
-
-  // 同名只保留一次（调用方应已 prefer 折叠）
-  const byName = new Map<string, SkillMeta>();
-  for (const s of skills) {
-    const name = normalizeSkillName(s.name);
-    if (!byName.has(name)) byName.set(name, { ...s, name });
-  }
-
-  for (const [name, meta] of byName) {
+  const result: MaterializeResult = {
+    canonicalDir: destRoot,
+    copied: [],
+    skipped: [],
+    failed: [],
+    backups: [],
+    skills: [],
+  };
+  const seen = new Set<string>();
+  for (const meta of skills) {
+    const name = normalizeSkillName(meta.name);
+    if (seen.has(name))
+      throw new SkillHubError({ code: "E_CONFLICT", message: `重复物化名称: ${name}` });
+    seen.add(name);
     const src = resolveAbsolutePath(meta.path);
     const dest = path.join(destRoot, name);
-
-    if (path.resolve(src) === path.resolve(dest)) {
-      try {
-        const parsed = await parseSkillMd(path.join(dest, "SKILL.md"), {
-          source: destRoot,
-          fallbackName: name,
-        });
-        out.push(parsed);
-        skipped.push({ name, reason: "源已在 canonical" });
-      } catch (err) {
-        failed.push({
-          name,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-      continue;
-    }
-
+    let stage: string | undefined;
+    let backup: string | undefined;
     try {
-      await access(src);
-    } catch (err) {
-      failed.push({
-        name,
-        error: `源不存在: ${src}`,
+      assertSkillInsideCanonical(dest, destRoot);
+      const sourceReal = await realpath(src);
+      const existing = await lstat(dest).catch((err: NodeJS.ErrnoException) => {
+        if (err.code === "ENOENT") return null;
+        throw err;
       });
-      void err;
-      continue;
-    }
-
-    const srcHash = meta.hash || (await readSkillHash(src));
-    let destExists = false;
-    try {
-      await access(dest);
-      destExists = true;
-    } catch {
-      destExists = false;
-    }
-
-    if (destExists) {
-      const destHash = await readSkillHash(dest);
-      if (destHash && srcHash && destHash === srcHash) {
-        try {
-          const parsed = await parseSkillMd(path.join(dest, "SKILL.md"), {
-            source: destRoot,
-            fallbackName: name,
-          });
-          out.push(parsed);
-          skipped.push({ name, reason: "canonical 已存在且 hash 相同" });
-        } catch (err) {
-          failed.push({
+      if (existing?.isSymbolicLink())
+        throw new Error(`canonical 目标是 symlink，拒绝穿透写入: ${dest}`);
+      if (existing && (await realpath(dest)) === sourceReal) {
+        result.skills.push({ ...meta, path: dest });
+        result.skipped.push({ name, reason: "源已在 canonical" });
+        continue;
+      }
+      const srcHash = await hashSkillTree(src);
+      if (existing) {
+        const same = existing.isDirectory() && (await hashSkillTree(dest)) === srcHash;
+        if (same || !options.force) {
+          if (same) result.skills.push({ ...meta, path: dest });
+          result.skipped.push({
             name,
-            error: err instanceof Error ? err.message : String(err),
+            reason: same
+              ? "canonical 全目录内容相同"
+              : "canonical 内容冲突：保留原件，需明确选择版本",
           });
+          continue;
         }
+      }
+      if (options.dryRun) {
+        result.copied.push(name);
+        result.skills.push({ ...meta, path: dest });
         continue;
       }
-      if (!options.force) {
-        skipped.push({
-          name,
-          reason: `canonical 已存在且内容不同（用 --force 覆盖） destHash=${destHash ?? "?"} srcHash=${srcHash ?? "?"}`,
-        });
-        try {
-          const parsed = await parseSkillMd(path.join(dest, "SKILL.md"), {
-            source: destRoot,
-            fallbackName: name,
-          });
-          out.push(parsed);
-        } catch {
-          // keep skipped only
-        }
-        continue;
+      await mkdir(destRoot, { recursive: true });
+      const canonicalReal = await realpath(destRoot);
+      const rel = path.relative(sourceReal, canonicalReal);
+      if (rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel))) {
+        throw new Error("canonical 不得位于导入源内部");
       }
-      await rm(dest, { recursive: true, force: true });
-    }
-
-    try {
-      await mkdir(path.dirname(dest), { recursive: true });
-      await cp(src, dest, {
+      stage = await mkdtemp(path.join(destRoot, ".ingest-"));
+      const staged = path.join(stage, "skill");
+      await cp(src, staged, {
         recursive: true,
-        force: true,
         dereference: true,
-        errorOnExist: false,
+        errorOnExist: true,
+        force: false,
+        filter: (entry) => path.basename(entry) !== ".git",
       });
-      const parsed = await parseSkillMd(path.join(dest, "SKILL.md"), {
-        source: destRoot,
-        fallbackName: name,
-      });
-      out.push(parsed);
-      copied.push(name);
+      if ((await hashSkillTree(staged)) !== srcHash)
+        throw new Error("复制期间源发生变化，请重新预览");
+      let parsed;
+      try {
+        parsed = await parseSkillMd(path.join(staged, "SKILL.md"), {
+          provenance: meta.provenance,
+          source: meta.source,
+        });
+      } catch (err) {
+        if (
+          !(err instanceof SkillHubError) ||
+          (err.cause as NodeJS.ErrnoException)?.code !== "ENOENT"
+        )
+          throw err;
+        parsed = await parseSkillMd(path.join(staged, "skill.md"), {
+          provenance: meta.provenance,
+          source: meta.source,
+        });
+      }
+      if (existing) {
+        const backupRoot = options.backupDir ?? path.join(path.dirname(destRoot), "backups");
+        backup = path.join(backupRoot, `ingest-${randomUUID()}`, name);
+        await mkdir(path.dirname(backup), { recursive: true });
+        await rename(dest, backup);
+      } else {
+        // 目标可能在复制期间出现；绝不覆盖。
+        const appeared = await lstat(dest).catch((err: NodeJS.ErrnoException) => {
+          if (err.code === "ENOENT") return null;
+          throw err;
+        });
+        if (appeared) throw new Error("目标在预览后出现，请重新执行");
+      }
+      try {
+        await rename(staged, dest);
+      } catch (err) {
+        if (backup) await rename(backup, dest);
+        backup = undefined;
+        throw err;
+      }
+      result.skills.push({ ...parsed, path: dest });
+      result.copied.push(name);
+      if (backup) result.backups.push({ name, path: backup });
     } catch (err) {
-      failed.push({
-        name,
-        error: err instanceof Error ? err.message : String(err),
-      });
+      result.failed.push({ name, error: err instanceof Error ? err.message : String(err) });
+    } finally {
+      if (stage) await rm(stage, { recursive: true, force: true });
     }
   }
-
-  out.sort((a, b) => a.name.localeCompare(b.name));
-  return { canonicalDir: destRoot, copied, skipped, failed, skills: out };
+  result.skills.sort((a, b) => a.name.localeCompare(b.name));
+  return result;
 }
 
 /** 校验 path 落在 canonical 下，防止路径穿越 */
-export function assertSkillInsideCanonical(
-  skillPath: string,
-  canonicalDir: string,
-): void {
+export function assertSkillInsideCanonical(skillPath: string, canonicalDir: string): void {
   const absSkill = resolveAbsolutePath(skillPath);
   const absCanon = resolveAbsolutePath(canonicalDir);
   const rel = path.relative(absCanon, absSkill);

@@ -1,18 +1,12 @@
-import { access, copyFile, mkdir, writeFile } from "node:fs/promises";
+import { access, readFile, mkdir, writeFile } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createEmptyCatalog, writeCatalog } from "@skill-hub/core";
-import {
-  getDefaultHubHome,
-  hubLayout,
-} from "@skill-hub/shared";
+import { getDefaultHubHome, hubLayout } from "@skill-hub/shared";
 import { printJson, printLines } from "../output.js";
 
-export async function runInit(options: {
-  json: boolean;
-  force: boolean;
-}): Promise<number> {
+export async function runInit(options: { json: boolean; force: boolean }): Promise<number> {
   const layout = hubLayout(getDefaultHubHome());
   const created: string[] = [];
   const skipped: string[] = [];
@@ -87,7 +81,8 @@ async function writeDefaultConfig(target: string): Promise<void> {
     try {
       await access(c, fsConstants.R_OK);
       await mkdir(path.dirname(target), { recursive: true });
-      await copyFile(c, target);
+      const template = await readFile(c, "utf8");
+      await writeFile(target, template.replaceAll("~/.skill-hub", getDefaultHubHome()), "utf8");
       return;
     } catch {
       // try next
@@ -101,6 +96,7 @@ agents:
   - id: workbuddy
     skills_dir: ~/.workbuddy/skills
     enabled: true
+sources: []
 router:
   top_k: 5
   engine: bm25
@@ -112,5 +108,5 @@ privacy:
   telemetry: false
 `;
   await mkdir(path.dirname(target), { recursive: true });
-  await writeFile(target, fallback, "utf8");
+  await writeFile(target, fallback.replaceAll("~/.skill-hub", getDefaultHubHome()), "utf8");
 }

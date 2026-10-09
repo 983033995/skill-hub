@@ -2,6 +2,9 @@ export type SyncAction =
   | "create_symlink"
   | "update_symlink"
   | "replace_real"
+  | "create_copy"
+  | "update_copy"
+  | "replace_real_copy"
   | "conflict"
   | "noop"
   | "remove_orphan"
@@ -15,12 +18,17 @@ export interface SyncPlanItem {
   target: string;
   /** canonical skill 路径 */
   source: string;
+  /** 生成计划时 catalog 中的 SKILL.md hash；apply 可据此拒绝陈旧 source。 */
+  expectedSkillHash?: string;
   detail?: string;
 }
 
 export interface SyncPlan {
   dryRun: boolean;
   generatedAt: string;
+  mode: SyncMode;
+  /** 由 planSync 填充；供 apply 在写入前复核 source 的 canonical 边界。 */
+  canonicalDir?: string;
   items: SyncPlanItem[];
   summary: {
     create: number;
@@ -31,11 +39,15 @@ export interface SyncPlan {
   };
 }
 
+export type SyncMode = "symlink" | "copy";
+
 export interface PlanSyncOptions {
   /** 默认 true */
   dryRun?: boolean;
   /** 仅规划这些 agent id（与 config.agents.id 匹配） */
   agents?: string[];
+  /** 分发模式；默认读取 config.sync.mode。 */
+  mode?: SyncMode;
   /**
    * 仅计划「目标不存在」的 create_symlink。
    * update / conflict / noop 记为 skipped（不写入）。
@@ -77,11 +89,11 @@ export interface BackupManifest {
 }
 
 export interface ApplyOptions {
-  /** 必须 true 才会写入；false 只重算计划 */
+  /** true 只预览；false 执行，调用方必须先完成授权与备份检查。 */
   dryRun?: boolean;
   /** 跳过 conflict 项（默认 true：apply 本就不写 conflict） */
   skipConflicts?: boolean;
-  /** 仅执行 create_symlink，跳过 update_symlink */
+  /** 仅执行 create 项，跳过 update / replace */
   createOnly?: boolean;
   /**
    * replace_real 时：把原真实路径迁到此目录下
@@ -101,8 +113,10 @@ export interface ApplyResult {
 export type VerifyIssueKind =
   | "missing"
   | "not_symlink"
+  | "not_copy"
   | "broken_symlink"
   | "wrong_target"
+  | "content_mismatch"
   | "ok";
 
 export interface VerifyItem {
@@ -122,8 +136,10 @@ export interface VerifyReport {
     ok: number;
     missing: number;
     not_symlink: number;
+    not_copy: number;
     broken_symlink: number;
     wrong_target: number;
+    content_mismatch: number;
   };
   items: VerifyItem[];
 }

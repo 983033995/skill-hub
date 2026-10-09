@@ -196,8 +196,8 @@
 | ID | 任务 | Status | Owner | 验收 |
 |----|------|--------|-------|------|
 | P15-01 | 公共README/状态/操作文档与开源社区规范 | done | agent | 中英README、MIT、贡献/安全/行为规范、API/状态真实对齐 |
-| P15-02 | CI/文档链接/隔离smoke与发布检查 | in_progress | agent | 本地门禁、无凭据历史扫描、fixture链路；远端Actions实际结果 |
-| P15-03 | 提交推送并将GitHub仓库公开 | in_progress | agent | 当前与远端SHA一致、visibility=public、安全和协作设置 |
+| P15-02 | CI/文档链接/隔离smoke与发布检查 | done | agent | 本地门禁、无凭据历史扫描、fixture链路；远端Actions实际结果 |
+| P15-03 | 提交推送并将GitHub仓库公开 | done | agent | 当前与远端SHA一致、visibility=public、安全和协作设置 |
 
 ## 看板维护规则
 

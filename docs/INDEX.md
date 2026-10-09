@@ -47,6 +47,7 @@
 
 | 文档 | 说明 | 维护触发 |
 |------|------|----------|
+| [ops/OPEN_SOURCE_RELEASE.md](./ops/OPEN_SOURCE_RELEASE.md) | 公开仓库社区/安全/CI设置和发布边界 | GitHub配置变更 |
 | [ops/ENVIRONMENT.md](./ops/ENVIRONMENT.md) | 环境依赖与配置 | 依赖升级 |
 | [ops/OPERATIONS_AND_RISKS.md](./ops/OPERATIONS_AND_RISKS.md) | 运维流程、风险、回滚 | 运维策略变更 |
 | [ops/MCP_INTEGRATION.md](./ops/MCP_INTEGRATION.md) | MCP 宿主配置（WorkBuddy/Cursor/…） | MCP/集成变更 |

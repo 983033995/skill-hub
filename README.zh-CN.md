@@ -51,6 +51,8 @@ MCP 配置与11个工具清单见 [MCP_INTEGRATION](docs/ops/MCP_INTEGRATION.md)
 
 `pnpm web` 启动 `http://127.0.0.1:4173` 的只读视图；没有认证，请保持回环访问。Markdown CDN不可用会降级纯文本。
 
+Jev token获取、CLI/MCP/宿主环境及回退排查见 [JEV_SETUP](docs/ops/JEV_SETUP.md)。
+
 默认无需API Key。`--engine external-typesafe` 才会向TypeSafe发送任务query及候选name/description/keywords；不上传正文和路径。低置信度仅建议升级，阈值需要自己的数据校准。通用模型provider目前是状态/接口基础设施，不宣称自动语义路由。
 
 ```bash

@@ -103,6 +103,8 @@ It imports provider/model settings from a pure JSON OpenCode configuration and d
 
 ## Optional model services
 
+**Jev token setup:** [Get an API key, configure CLI/MCP/hosts, verify fallback](docs/ops/JEV_SETUP.md).
+
 BM25 works offline without API keys. Jev is explicitly enabled with `--engine external-typesafe`; it sends the task query and candidate `name`, `description`, and `keywords` to TypeSafe. Skill bodies and paths are not part of that request.
 
 ```bash

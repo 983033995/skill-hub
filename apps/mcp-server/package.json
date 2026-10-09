@@ -17,7 +17,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@skill-hub/core": "workspace:*",
     "@skill-hub/router": "workspace:*",
     "@skill-hub/shared": "workspace:*"

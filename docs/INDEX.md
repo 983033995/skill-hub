@@ -48,6 +48,7 @@
 | 文档 | 说明 | 维护触发 |
 |------|------|----------|
 | [ops/OPEN_SOURCE_RELEASE.md](./ops/OPEN_SOURCE_RELEASE.md) | 公开仓库社区/安全/CI设置和发布边界 | GitHub配置变更 |
+| [ops/JEV_SETUP.md](./ops/JEV_SETUP.md) | Jev token、CLI/MCP/宿主配置与回退排查 | Jev配置变化 |
 | [ops/ENVIRONMENT.md](./ops/ENVIRONMENT.md) | 环境依赖与配置 | 依赖升级 |
 | [ops/OPERATIONS_AND_RISKS.md](./ops/OPERATIONS_AND_RISKS.md) | 运维流程、风险、回滚 | 运维策略变更 |
 | [ops/MCP_INTEGRATION.md](./ops/MCP_INTEGRATION.md) | MCP 宿主配置（WorkBuddy/Cursor/…） | MCP/集成变更 |
@@ -61,6 +62,7 @@
 
 | 文档 | 说明 | 维护触发 |
 |------|------|----------|
+| [planning/PR_REVIEW_20261009.md](./planning/PR_REVIEW_20261009.md) | 开放依赖PR的兼容性、CI及合并前提 | PR状态变化 |
 | [planning/STATUS.md](./planning/STATUS.md) | 当前实现、验证与限制（优先阅读） | 状态变化 |
 | [planning/ROADMAP.md](./planning/ROADMAP.md) | 阶段与里程碑 | 里程碑调整 |
 | [planning/TASK_BOARD.md](./planning/TASK_BOARD.md) | 任务状态板 | 每个工作日/每个 PR |

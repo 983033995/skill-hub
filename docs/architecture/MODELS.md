@@ -12,6 +12,8 @@
 
 ### 1.1 Jev 语义路由（独立于 LLM Provider）
 
+完整配置入口：[Jev token获取与CLI/MCP/宿主配置](../ops/JEV_SETUP.md)。API Key来自[官方控制台](https://console.typesafe.ai/keys)。配置TYPESAFE_API_KEY后还需要选择external-typesafe；.env不会自动加载，models.yaml不是Jev的配置。
+
 Jev 不是 chat/embed Provider，而是一个可选的 `RouterEngine`：使用 `external-typesafe` 对候选 Skill 的 `name`、`description`、`keywords` 做 Choice 概率排序。它不读取或上传 `SKILL.md` 正文，不改变默认 BM25，也不写用户 Skill 目录。
 
 ```bash

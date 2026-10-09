@@ -438,3 +438,10 @@
 - **安全/协作**：private vulnerability reporting enabled；Dependabot alerts和automated-security-fixes enabled/unpaused，security_and_analysis的dependabot_security_updates、secret_scanning、secret_scanning_push_protection均enabled。Actions默认contents read且不可审批PR；main-integrity ruleset active（禁止删除/非快进，要求三组CI，管理员保留应急bypass）。
 - **真实远端CI**：[CI run 37926838060](https://github.com/983033995/skill-hub/actions/runs/37926838060)精确对应ddc75c8，Linux Node20/22与macOS Node22三组全成功，install/typecheck/build/lint/test/docs/smoke各步成功。未把Dependabot其它分支检查当main结果。
 - **边界**：保留package.private阻止npm误发布；本次没有发布npm或自动合并依赖PR。manifest/managed pin/rollback和Qoder/WorkBuddy模型回归仍未宣称完成。公共操作入口和安全规范见README/STATUS/SECURITY；原本机文档与审查报告留在ignored outputs。
+
+### 2026-10-09 — Phase 16：开放PR评估与Jev token指南
+
+- **PR审查**：5个Dependabot开放PR；#1/#2/#3 Action仅替换固定SHA，三组CI绿，保留现用参数，新Action运行时Node24不改变项目Node20/22测试矩阵；#5 MCP SDK1.32.1三组CI绿，当前main55a7410+其精确manifest/lock在临时副本上141测试/typecheck/build/lint/docs/smoke全通过。全部BEHIND，合并前需更新基线并重跑严格checks；本轮没有合并/关闭/更新PR。
+- **不建议**：#4同时跨TypeScript7/Vitest5/ESLint10/Node types26，三组typecheck失败（TS2591等）；需要单独迁移，不绕过CI。详细依据PR_REVIEW_20261009.md。
+- **Jev配置**：实时官方quickstart/API与Context7核对Key页面console.typesafe.ai/keys，新增JEV_SETUP.md与空Key.env.example，README/中文README/MODELS/API/INDEX入口齐全。区分token与引擎选择、不同进程环境、.env不会自动加载、源码入口无自动Keychain、官方SDK变量与本项目适配器变量不同。
+- **范围**：仅补文档与审查记录，不修改用户token、真实Hub默认引擎或宿主配置；未进行收费Jev请求。隔离PR5验收结果保存在ignored outputs/pr5-review-20261009.json。

@@ -206,6 +206,14 @@
 | P16-01 | 5个开放Dependabot PR逐项评估 | done | agent | 精确SHA/CI/失败日志与SDK隔离回归；不绕过main检查 |
 | P16-02 | Jev token与CLI/MCP/GUI设置文档 | done | agent | 官方Key页面、引擎选择、变量/进程继承、无自动.env/Keychain误解 |
 
+## Phase 17 — 依赖合并与远端MCP说明（2026-10-09）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P17-01 | 更新基线并顺序合并#5/#1/#2/#3 | done | agent | 每个新head三组CI成功/CLEAN，精确SHA合并；#4不动 |
+| P17-02 | 同步合并后本地/远端验证与文档 | done | agent | frozen-lockfile/typecheck/build/lint/test/docs/smoke和最终main CI |
+| P17-03 | 说明远端MCP当前支持与部署边界 | done | agent | stdio与HTTP/REST区别、服务端持久Skill、HTTPS/鉴权、两种token；不部署 |
+
 ## 看板维护规则
 
 1. 同时 `in_progress` 建议 ≤ 3  

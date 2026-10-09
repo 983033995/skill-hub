@@ -445,3 +445,11 @@
 - **不建议**：#4同时跨TypeScript7/Vitest5/ESLint10/Node types26，三组typecheck失败（TS2591等）；需要单独迁移，不绕过CI。详细依据PR_REVIEW_20261009.md。
 - **Jev配置**：实时官方quickstart/API与Context7核对Key页面console.typesafe.ai/keys，新增JEV_SETUP.md与空Key.env.example，README/中文README/MODELS/API/INDEX入口齐全。区分token与引擎选择、不同进程环境、.env不会自动加载、源码入口无自动Keychain、官方SDK变量与本项目适配器变量不同。
 - **范围**：仅补文档与审查记录，不修改用户token、真实Hub默认引擎或宿主配置；未进行收费Jev请求。隔离PR5验收结果保存在ignored outputs/pr5-review-20261009.json。
+
+### 2026-10-09 — Phase 17：授权依赖PR合并与远端MCP边界文档
+
+- **合并顺序**：#5/#1/#2/#3，每个PR更新main基线后的精确head三组必需CI成功且CLEAN才squash；未使用admin bypass、强推或历史重写。SDK1.32.1、checkout7.0.1、pnpm/action-setup6.1.0、setup-node7.0.0已进入main。精确head/merge SHA见PR_REVIEW_20261009.md。
+- **过程异常**：GitHubCLI更新workflow时遇到workflow scope权限拒绝和短暂旧head缓存；保持等待/不绕过检查。PR3自动刷新曾冲突，Dependabot生成新head后复核差异只剩setup-node并重新等待CI。
+- **合并后证据**：main d10555c0三组[CI37933317703](https://github.com/983033995/skill-hub/actions/runs/37933317703)成功；本地frozen install/typecheck/build/lint/141tests（37files）/docs（54files、零断链）/compiled stdio MCP smoke通过。
+- **范围**：#4失败toolchain组不动；期间自动新增#6Vitest4.1.11不属于指定四个目标，未合并。个人Hub与宿主配置不改，未调用收费模型。
+- **远端说明**：REMOTE_MCP.md核对源码仅StdioServerTransport，区分远端StreamableHTTP协议与当前未实现能力；Web REST/GitHub不是MCP服务。明确HTTPS/Origin/鉴权、服务端catalog/Skill路径迁移、持久化、客户端兼容和验收要求；Hub访问token与TypeSafeKey分离。本轮没有部署或打开端口。

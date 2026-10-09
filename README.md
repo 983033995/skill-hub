@@ -73,6 +73,8 @@ Do not commit your Hub catalog, credentials, installed Skills, local backups or 
 
 ## Connect an agent through MCP
 
+**Remote URL?** This release supports stdio only. The Web REST API is not an HTTP MCP endpoint. See [remote MCP status and requirements](docs/ops/REMOTE_MCP.md).
+
 Build the repository, then configure your host to start the following stdio server. Replace both absolute paths with values from your machine; `node` must be available to the host process.
 
 ```json

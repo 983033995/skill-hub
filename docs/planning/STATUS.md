@@ -27,6 +27,8 @@ Connecting Hub does not automatically disable a host's discovery. This repositor
 
 ## Known limitations
 
+- Remote Streamable HTTP MCP is not implemented/deployed; current MCP is stdio only. Web REST endpoints cannot be used as an MCP URL. See [remote MCP](../ops/REMOTE_MCP.md).
+
 - `restore --apply` replaces destination contents; review the manifest, retain a separate copy and test in a sandbox. Directory/lock and catalog/index changes are not one cross-package transaction.
 - `route --include-body` is currently reserved; use explicit read/fetch tools.
 - `hybrid` currently reports BM25 degradation; generic chat/embed providers are not automatically consumed by routing.

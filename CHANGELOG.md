@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Dependency updates (2026-10-09)
+
+- Merge MCP SDK1.32.1 and pinned checkout7.0.1 / pnpm-action6.1.0 / setup-node7.0.0 after updated-head CI; retain Node20/22 project matrix.
+- Keep the failing grouped major development-toolchain upgrade unmerged.
+- Document that remote MCP requires a future authenticated Streamable HTTP service; current stdio/Web REST do not provide it.
+
+
 ### Added
 
 - Managed local/public GitHub installation, adoption and updates with source locks, full-tree hashes and local-edit protection.

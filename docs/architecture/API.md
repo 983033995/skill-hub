@@ -197,6 +197,8 @@ createExternalRouter // stdin/stdout 协议 + 降级 bm25
 
 ## 3. MCP 接口（Phase 3）
 
+当前实现仅stdio；没有Streamable HTTP远端endpoint。Web /api是REST，不是MCP传输。远端方案与未实现要求见 [REMOTE_MCP](../ops/REMOTE_MCP.md)。
+
 传输：**stdio MCP**。入口：`apps/mcp-server/dist/index.js`。
 
 | Tool | 参数 | 返回 |

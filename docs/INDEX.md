@@ -51,6 +51,7 @@
 | [ops/JEV_SETUP.md](./ops/JEV_SETUP.md) | Jev token、CLI/MCP/宿主配置与回退排查 | Jev配置变化 |
 | [ops/ENVIRONMENT.md](./ops/ENVIRONMENT.md) | 环境依赖与配置 | 依赖升级 |
 | [ops/OPERATIONS_AND_RISKS.md](./ops/OPERATIONS_AND_RISKS.md) | 运维流程、风险、回滚 | 运维策略变更 |
+| [ops/REMOTE_MCP.md](./ops/REMOTE_MCP.md) | 远端MCP现状、服务端Skill与鉴权要求（未实现） | 远端接入变化 |
 | [ops/MCP_INTEGRATION.md](./ops/MCP_INTEGRATION.md) | MCP 宿主配置（WorkBuddy/Cursor/…） | MCP/集成变更 |
 | [ops/OPENCODE_HUB.md](./ops/OPENCODE_HUB.md) | OpenCode 零单项 Skill 安装入口与验收 | 运行时/验收变更 |
 | [ops/WORKBUDDY_HUB.md](./ops/WORKBUDDY_HUB.md) | WorkBuddy用户Skill停用、Hub接入、备份和待验证限制 | WorkBuddy接入/回归 |

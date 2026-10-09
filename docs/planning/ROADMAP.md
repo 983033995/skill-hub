@@ -278,3 +278,10 @@ cli 稳定 ↘ mcp(M3)
 - [x] CI覆盖类型/构建/lint/test/docs/sandbox，不依赖私有catalog或模型Key；首个公开提交三组远端检查成功。
 - [x] 提交当前实现、校验远端、切public，启用私有漏洞报告、依赖安全更新和secret推送保护。
 - manifest、pin/rollback/overlay、标注Jev质量集、WorkBuddy/Qoder模型回归仍是后续工作。
+
+## Phase 17 — 依赖合并与远端MCP说明（2026-10-09）
+
+- [x] #5/#1/#2/#3更新基线、三组CI成功后合并；保留#4。
+- [x] 合并后main三组远端CI和本地141测试/完整门禁通过，文档同步；新#6不属本次合并范围。
+- [x] 远端MCP方案说明，明确当前尚无HTTP MCP入口。
+- 后续远端产品工作需要目标机器、持久化Skill范围、认证方案与客户端支持决定；本轮不开放端口/迁移用户Skill或伪造远端URL。

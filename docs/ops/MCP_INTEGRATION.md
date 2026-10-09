@@ -2,6 +2,10 @@
 
 Status: Active · Updated: 2026-10-09 · Transport: stdio · Scope: read-only
 
+## Remote access status
+
+This release only has stdio. It does not expose a Streamable HTTP MCP URL; the local Web REST API is not MCP. A public GitHub repo is source hosting, not a running service. See [REMOTE_MCP](REMOTE_MCP.md) for hosting, authentication, server-side Skill storage and acceptance requirements.
+
 ## Build and connect
 
 Run `pnpm install --frozen-lockfile` and `pnpm build` in a checkout. Install or import Skills into your Hub separately. Configure the host to start Node with the built MCP entry, using absolute paths. GUI applications may not inherit your terminal's PATH.

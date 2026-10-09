@@ -264,6 +264,8 @@ Profile 模板：`configs/profiles/*.yaml`。
 - `SKILL_HUB_EXTERNAL_ENGINE_ARGS`
 - `SKILL_HUB_PROFILES_DIR`
 
+Jev token获取、默认引擎、进程环境继承与GUI配置见 [JEV_SETUP](../ops/JEV_SETUP.md)。
+
 Jev 语义路由（`external-typesafe`）使用：
 
 - `TYPESAFE_API_KEY`：必须通过环境变量或宿主密钥管理器提供，不写入仓库配置

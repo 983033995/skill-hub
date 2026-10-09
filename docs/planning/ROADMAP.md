@@ -274,7 +274,7 @@ cli 稳定 ↘ mcp(M3)
 
 ## Phase 15 — 公开开源（2026-10-09）
 
-- [ ] 文档统一公开源码使用入口，中英README、状态/边界、MIT和社区文件。
-- [ ] CI覆盖类型/构建/lint/test/docs/sandbox，不依赖私有catalog或模型Key。
-- [ ] 提交当前实现、校验远端、切public，启用私有漏洞报告和依赖安全能力。
+- [x] 文档统一公开源码使用入口，中英README、状态/边界、MIT和社区文件。
+- [x] CI覆盖类型/构建/lint/test/docs/sandbox，不依赖私有catalog或模型Key；首个公开提交三组远端检查成功。
+- [x] 提交当前实现、校验远端、切public，启用私有漏洞报告、依赖安全更新和secret推送保护。
 - manifest、pin/rollback/overlay、标注Jev质量集、WorkBuddy/Qoder模型回归仍是后续工作。

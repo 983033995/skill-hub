@@ -81,6 +81,83 @@ describe("integration: runtime CLI/MCP surface", () => {
       await server.close();
     }
   });
+
+  it("runtime mode exposes only three tools and keeps safe paging/attachment access", async () => {
+    const home = await mkdtemp(path.join(tmpdir(), "skill-hub-minimal-runtime-"));
+    const root = path.join(home, "skills", "runtime-proof");
+    await mkdir(path.join(root, "references"), { recursive: true });
+    await writeFile(
+      path.join(root, "SKILL.md"),
+      "---\nname: runtime-proof\ndescription: specialized runtime proof\n---\n" +
+        "body ".repeat(2000),
+    );
+    await writeFile(path.join(root, "references", "proof.txt"), "fixture-proof");
+    await writeCatalog(
+      path.join(home, "catalog.json"),
+      buildCatalog(await scanSkills(path.join(home, "skills"))),
+    );
+    vi.stubEnv("SKILL_HUB_HOME", home);
+    vi.stubEnv("SKILL_HUB_MCP_NO_START", "1");
+    const { createSkillHubMcpServer } = await import("../../apps/mcp-server/src/index.js");
+    const server = await createSkillHubMcpServer({ mode: "runtime" });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "minimal-runtime-test", version: "1" });
+    await server.connect(st);
+    await client.connect(ct);
+    try {
+      expect((await client.listTools()).tools.map((t) => t.name)).toEqual([
+        "skill_search",
+        "skill_files",
+        "skill_read",
+      ]);
+      expect(client.getInstructions()).toContain("skill_read");
+      expect(client.getInstructions()).not.toContain("skill_fetch");
+      expect(client.getInstructions()).toContain("This server does not disable native Skill discovery.");
+      const found = await callJson(client, "skill_search", { query: "specialized runtime proof" });
+      expect(found.results[0]).toMatchObject({ name: "runtime-proof", scope: "user" });
+      expect(found.results[0]).not.toHaveProperty("path");
+      expect(found).toHaveProperty("index_rebuild_recommended");
+      const first = await callJson(client, "skill_read", { name: "runtime-proof" });
+      expect(first.body).toHaveLength(8000);
+      expect(first.nextOffset).toBe(8000);
+      const next = await callJson(client, "skill_read", {
+        name: "runtime-proof",
+        offset: first.nextOffset,
+        max_chars: 100,
+      });
+      expect(next.hash).toBe(first.hash);
+      const files = await callJson(client, "skill_files", {
+        name: "runtime-proof",
+        path: "references",
+      });
+      expect(files.files[0].path).toBe("references/proof.txt");
+      expect(
+        (await callJson(client, "skill_read", { name: "runtime-proof", file: files.files[0].path }))
+          .body,
+      ).toBe("fixture-proof");
+      for (const name of ["skill_fetch", "skill_list", "skill_audit", "skill_stats"]) {
+        const rejected = await client.callTool({ name, arguments: { name: "runtime-proof" } });
+        expect(rejected.isError).toBe(true);
+        expect(JSON.parse(textContent(rejected)).code).toBe("E_CONFIG");
+      }
+      const outside = await client.callTool({
+        name: "skill_read",
+        arguments: { name: "runtime-proof", file: "../outside.txt" },
+      });
+      expect(outside.isError).toBe(true);
+      expect(JSON.parse(textContent(outside)).code).toBe("E_PATH");
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("rejects an invalid MCP mode rather than silently exposing all tools", async () => {
+    vi.stubEnv("SKILL_HUB_MCP_NO_START", "1");
+    vi.stubEnv("SKILL_HUB_MCP_MODE", "unknown");
+    const { createSkillHubMcpServer } = await import("../../apps/mcp-server/src/index.js");
+    await expect(createSkillHubMcpServer()).rejects.toMatchObject({ code: "E_CONFIG" });
+  });
 });
 
 async function callJson(

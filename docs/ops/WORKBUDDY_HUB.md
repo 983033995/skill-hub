@@ -7,7 +7,7 @@ Updated: 2026-10-09
 
 The installed WorkBuddy runtime inspected during development supports `skillOverrides[name] = "off"` and a native `Skill` deny rule. WorkBuddy uses its own `mcp.json` `mcpServers` configuration. Back up your settings, use exact Skill names from your installation, preserve provider/other MCP entries, and configure Node plus the absolute built Hub MCP path from [MCP_INTEGRATION](MCP_INTEGRATION.md).
 
-Task-content search/fetch/files/read guidance can be appended to an existing custom prompt. Do not replace other custom guidance or delete Skill files just to disable their loader. New Skills may require new off entries; project settings and built-in plugin policy can differ.
+Task-content search/read/files guidance can be appended to an existing custom prompt. Use `skill_read` for precise names or selected candidates in both MCP modes; `skill_fetch` is full-only. Do not replace other custom guidance or delete Skill files just to disable their loader. New Skills may require new off entries; project settings and built-in plugin policy can differ.
 
 ## What was actually verified
 
@@ -17,6 +17,6 @@ This was **not** WorkBuddy GUI/model acceptance. A running task was not interrup
 
 ## Apply/recover
 
-Use the host's supported settings UI/configuration for your installed version, review a preview of changed keys, and save a private backup outside Git. Once running work completes, restart WorkBuddy and create a new conversation to verify search/fetch tool traces and native-tool denial.
+Use the host's supported settings UI/configuration for your installed version, review a preview of changed keys, and save a private backup outside Git. Once running work completes, restart WorkBuddy and create a new conversation to verify search/read tool traces and native-tool denial.
 
 Restore only this adapter's changed keys or compare with the original backup before replacing files, so later model/MCP changes are not lost. This repository does not contain a user's settings, credentials or personal backup.

@@ -91,7 +91,11 @@ skill-hub index [--rebuild] [--catalog <path>] [--index-dir <dir>]
 
 **实现状态**：Done（Phase 1）
 
-`index` 同时生成 `index-meta.json`（catalog hash/freshness）和 `bm25.json`（BM25 可加载 artifact）。`--rebuild` 用当前 canonical 重新吸收 Skill 元数据并覆盖两份索引文件。`index-meta.json.catalogHash` 对比当前 catalog 的稳定 hash；`route` 在没有 profile/scope 过滤且 hash 匹配时直接加载 `bm25.json`，否则回退内存 BM25。
+`index` 同时生成 `index-meta.json`（catalog hash/freshness）和 `bm25.json`（BM25 可加载 artifact）。`--rebuild` 用当前 canonical 重新吸收 Skill 元数据并覆盖两份索引文件；普通`index`使用现有catalog。当前artifact为v2（`skill-hub.bm25.v2`），旧v1不再加载，查询回退内存并提示重建。
+
+`index_fresh=true`要求catalog hash匹配、artifact版本可加载、数量匹配，以及全部登记Skill的`SKILL.md`（兼容`skill.md`）当前内容SHA-256匹配。内容变化、缺失、越界链接、特殊文件、超过10MiB或读取异常返回false与原因；正文校验不将正文纳入检索或上传，也不扫描附件。内容漂移时返回现有catalog的内存检索结果并提示`index --rebuild`，不会自动写用户文件或偷偷吸收新元数据。坏链须先按来源修复再重建，不能靠重建绕过不完整扫描。
+
+BM25按字段去重并累计名称×3、顶层keywords×3、description×1；中文多字串使用bigram。查询确实为一个汉字时，按各元数据字段的字符覆盖单独回退，不向普通查询恢复unigram噪音；reasons增加`single_char_fallback`。`reasons`区分`name_token`、`keyword_hit`和`desc_hit`。网页/API/本地等使用方式应写进description和keywords；当前检索仍是词项匹配，不能把排名当作执行授权或语义理解保证。
 
 ---
 
@@ -200,6 +204,8 @@ createExternalRouter // stdin/stdout 协议 + 降级 bm25
 当前实现仅stdio；没有Streamable HTTP远端endpoint。Web /api是REST，不是MCP传输。远端方案与未实现要求见 [REMOTE_MCP](../ops/REMOTE_MCP.md)。
 
 传输：**stdio MCP**。入口：`apps/mcp-server/dist/index.js`。
+
+`SKILL_HUB_MCP_MODE`可选`full`（默认、兼容下表11工具）或`runtime`（仅skill_search/skill_read/skill_files）；非法值报E_CONFIG，隐藏工具也不能直接调用。runtime默认Top-3/文本8000字符，搜索返回紧凑候选name/description/score/scope与索引警告/简化decision；读取返回和安全边界不变。`createSkillHubMcpServer({mode?})`可供库调用显式选择模式。配置与开销计量见[MINIMAL_RUNTIME](../ops/MINIMAL_RUNTIME.md)。
 
 | Tool | 参数 | 返回 |
 |------|------|------|

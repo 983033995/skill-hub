@@ -19,7 +19,7 @@ The installed Qoder runtime 1.1.64 inspected during development declares:
 }
 ```
 
-`skills.enabled` requires a new runtime/restart. Back up settings first; merge these fields into existing `~/.qoder/settings.json`, preserving providers and business MCP entries. Configure `mcpServers.skill-hub` as described in [MCP_INTEGRATION](MCP_INTEGRATION.md), and append content-search/fetch/files/read guidance to global `AGENTS.md`.
+`skills.enabled` requires a new runtime/restart. Back up settings first; merge these fields into existing `~/.qoder/settings.json`, preserving providers and business MCP entries. Configure `mcpServers.skill-hub` as described in [MCP_INTEGRATION](MCP_INTEGRATION.md). For global guidance, use mode-independent names: unknown Skill → `skill_search` → `skill_read`; exact name → `skill_read`; attachments → `skill_files` → `skill_read`. Both full and runtime expose these tools; `skill_fetch` is available only in full. See [runtime modes](MINIMAL_RUNTIME.md).
 
 Do not remove Skill files, modify application code, or claim native-tool removal merely because the Skill list is empty. Project settings may override user settings; verify each workspace's effective runtime.
 
@@ -37,6 +37,6 @@ The runtime still listed a native `Skill` tool name. Empty discovery is the meas
 
 ## Verify and recover
 
-After running tasks finish, open a new Qoder session. Check effective Skill discovery, Hub connection and actual task-content search/fetch calls. If using a standalone CLI, establish its login through the normal vendor flow; do not copy private authentication payloads into the repository.
+After running tasks finish, open a new Qoder session. Check effective Skill discovery, Hub connection and actual task-content search/read calls. If using a standalone CLI, establish its login through the normal vendor flow; do not copy private authentication payloads into the repository.
 
 Keep a private backup of settings and global instructions, then compare changed keys before reverting. Source checkout/CI tests cannot establish that the desktop host adopted the new settings.

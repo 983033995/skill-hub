@@ -1,0 +1,307 @@
+{
+  "version": 1,
+  "labelStatus": "agent-authored draft; requires owner review",
+  "notes": "Generic manually authored tasks mapped to known catalog capabilities; not private user history. Ambiguous single-character probes are excluded from primary Recall@5. none means a capable base model does not need specialized guidance, not that no Skill shares a word.",
+  "cases": [
+    {
+      "id": "web-music-short",
+      "query": "网页版 minimax music",
+      "kind": "required",
+      "expectedAnyOf": ["multi-provider-image-tts"]
+    },
+    {
+      "id": "web-music-zh",
+      "query": "我想用 MiniMax 网页端生成歌曲，不用开放平台 API Key",
+      "kind": "required",
+      "expectedAnyOf": ["multi-provider-image-tts"]
+    },
+    {
+      "id": "web-music-en",
+      "query": "MiniMax Music web song generation",
+      "kind": "required",
+      "expectedAnyOf": ["multi-provider-image-tts"]
+    },
+    {
+      "id": "local-music",
+      "query": "本地 ACE-Step 1.5 生成背景音乐",
+      "kind": "required",
+      "expectedAnyOf": ["multi-provider-image-tts"]
+    },
+    {
+      "id": "humanize-zh",
+      "query": "去除中文文案里的 AI 痕迹，让文字自然",
+      "kind": "required",
+      "expectedAnyOf": ["humanizer-zh"]
+    },
+    {
+      "id": "humanize-en",
+      "query": "Humanize Chinese text and remove AI writing patterns",
+      "kind": "required",
+      "expectedAnyOf": ["humanizer-zh"]
+    },
+    {
+      "id": "pdf-merge",
+      "query": "合并多个 PDF 文件",
+      "kind": "required",
+      "expectedAnyOf": ["pdf"]
+    },
+    {
+      "id": "pdf-report",
+      "query": "Create a polished PDF report",
+      "kind": "required",
+      "expectedAnyOf": ["minimax-pdf", "pdf"]
+    },
+    {
+      "id": "docx",
+      "query": "制作 Word DOCX 格式的正式报告",
+      "kind": "required",
+      "expectedAnyOf": ["minimax-docx", "doc"]
+    },
+    {
+      "id": "xlsx",
+      "query": "Format an Excel spreadsheet",
+      "kind": "required",
+      "expectedAnyOf": ["minimax-xlsx"]
+    },
+    {
+      "id": "frontend-zh",
+      "query": "设计一个现代化前端落地页 landing page",
+      "kind": "required",
+      "expectedAnyOf": ["frontend-design", "ui-ux-pro-max"]
+    },
+    {
+      "id": "frontend-en",
+      "query": "Build production-grade responsive frontend UI",
+      "kind": "required",
+      "expectedAnyOf": ["frontend-design"]
+    },
+    {
+      "id": "react-perf",
+      "query": "React Next.js performance optimization rerenders",
+      "kind": "required",
+      "expectedAnyOf": ["vercel-react-best-practices"]
+    },
+    {
+      "id": "next-router",
+      "query": "Next.js App Router Server Components streaming SSR",
+      "kind": "required",
+      "expectedAnyOf": ["nextjs-app-router-patterns"]
+    },
+    {
+      "id": "devops",
+      "query": "Docker container CI/CD deployment pipeline",
+      "kind": "required",
+      "expectedAnyOf": ["devops-engineer"]
+    },
+    {
+      "id": "ssh",
+      "query": "SSH 加固，禁用密码登录，改为密钥登录",
+      "kind": "required",
+      "expectedAnyOf": ["ssh-hardening"]
+    },
+    {
+      "id": "vps",
+      "query": "Ubuntu VPS 只读健康巡检，查看资源和端口",
+      "kind": "required",
+      "expectedAnyOf": ["vps-checkup", "vps-ops-manager"]
+    },
+    {
+      "id": "browser-zh",
+      "query": "浏览器自动化，打开网页并填写表单",
+      "kind": "required",
+      "expectedAnyOf": ["autoglm-browser-agent", "agent-browser"]
+    },
+    {
+      "id": "browser-en",
+      "query": "Browser automation scrape website and fill forms",
+      "kind": "required",
+      "expectedAnyOf": ["agent-browser", "autoglm-browser-agent"]
+    },
+    {
+      "id": "captions",
+      "query": "给现有口播视频添加中文字幕",
+      "kind": "required",
+      "expectedAnyOf": ["embedded-captions", "captions-overlay"]
+    },
+    {
+      "id": "talking-head",
+      "query": "Add designed lower thirds and graphic overlays to a talking-head interview",
+      "kind": "required",
+      "expectedAnyOf": ["talking-head-recut"]
+    },
+    {
+      "id": "product-video",
+      "query": "把产品网站做成 product launch promo video",
+      "kind": "required",
+      "expectedAnyOf": ["product-launch-video"]
+    },
+    {
+      "id": "explainer",
+      "query": "Turn article notes into a faceless explainer video",
+      "kind": "required",
+      "expectedAnyOf": ["faceless-explainer"]
+    },
+    {
+      "id": "music-video",
+      "query": "音乐节拍同步的歌词视频 music to video",
+      "kind": "required",
+      "expectedAnyOf": ["music-to-video"]
+    },
+    {
+      "id": "jev",
+      "query": "TypeSafe Jev typed probabilities routing and ranking",
+      "kind": "required",
+      "expectedAnyOf": ["typesafe-ai"]
+    },
+    {
+      "id": "distribution",
+      "query": "把一个 Skill 软链到 Codex，保持单一真源",
+      "kind": "required",
+      "expectedAnyOf": ["skill-hub-agent-distribution"]
+    },
+    {
+      "id": "distill",
+      "query": "蒸馏一个人物的思维框架，造成人物 Skill",
+      "kind": "required",
+      "expectedAnyOf": ["huashu-nuwa"]
+    },
+    {
+      "id": "agnes",
+      "query": "Agnes Video 2.5 first-frame animation prompt stable motion",
+      "kind": "required",
+      "expectedAnyOf": ["agnes-video-v2-prompt-craft"]
+    },
+    {
+      "id": "playlist",
+      "query": "Generate personalized music playlist recommendations",
+      "kind": "required",
+      "expectedAnyOf": ["minimax-music-playlist"]
+    },
+    {
+      "id": "short-captions",
+      "query": "字幕",
+      "kind": "required",
+      "expectedAnyOf": ["embedded-captions", "captions-overlay"]
+    },
+    {
+      "id": "none-01",
+      "query": "2+2等于几",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-02",
+      "query": "计算 137 加 286",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-03",
+      "query": "把15厘米换算成米",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-04",
+      "query": "解释什么是二分查找",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-05",
+      "query": "将hello翻译成中文",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-06",
+      "query": "给变量起名用来保存用户年龄",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-07",
+      "query": "HTTP 404 是什么意思",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-08",
+      "query": "求3、4、5的平均值",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-09",
+      "query": "给我一句普通的周末问候",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-10",
+      "query": "What is 2 plus 2?",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-11",
+      "query": "Convert 15 cm to meters",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-12",
+      "query": "Define a prime number",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-13",
+      "query": "Translate hello into Chinese",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-14",
+      "query": "Alphabetize Bob and Amy",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "none-15",
+      "query": "谢谢，结束了",
+      "kind": "none",
+      "expectedAnyOf": []
+    },
+    {
+      "id": "ambiguous-01",
+      "query": "音",
+      "kind": "ambiguous",
+      "expectedAnyOf": ["multi-provider-image-tts"]
+    },
+    {
+      "id": "ambiguous-02",
+      "query": "词",
+      "kind": "ambiguous",
+      "expectedAnyOf": ["multi-provider-image-tts", "minimax-music-gen"]
+    },
+    {
+      "id": "ambiguous-03",
+      "query": "图",
+      "kind": "ambiguous",
+      "expectedAnyOf": ["multi-provider-image-tts", "imagegen"]
+    },
+    {
+      "id": "ambiguous-04",
+      "query": "字",
+      "kind": "ambiguous",
+      "expectedAnyOf": ["humanizer-zh"]
+    },
+    {
+      "id": "ambiguous-05",
+      "query": "画",
+      "kind": "ambiguous",
+      "expectedAnyOf": ["imagegen", "multi-provider-image-tts"]
+    }
+  ]
+}

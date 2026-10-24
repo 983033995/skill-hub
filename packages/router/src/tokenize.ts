@@ -25,14 +25,13 @@ export function tokenize(text: string): string[] {
     }
   }
 
-  // CJK：连续汉字取 bigram + unigram
+  // 多字汉字使用 bigram，避免“生/成/音”等单字把无关任务召回。
+  // 单字查询仍保留，保持短中文 Skill 名可检索。
   for (const m of lower.matchAll(/[\u4e00-\u9fff]+/g)) {
     const run = m[0]!;
-    for (let i = 0; i < run.length; i += 1) {
-      push(run[i]!);
-      if (i + 1 < run.length) {
-        push(run.slice(i, i + 2));
-      }
+    if (run.length === 1) push(run);
+    for (let i = 0; i + 1 < run.length; i += 1) {
+      push(run.slice(i, i + 2));
     }
   }
 

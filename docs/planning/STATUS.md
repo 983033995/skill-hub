@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-09 · Version: v0.1.0 source distribution
+Updated: 2026-10-12 · Version: v0.1.0 source distribution
 
 This page is the current overview. Older Phase documents record development history and may contain obsolete plans. Start with the README and current API for supported behavior.
 
@@ -12,6 +12,7 @@ This page is the current overview. Older Phase documents record development hist
 - Explicit symlink/copy compatibility sync, backups and verification.
 - Optional Jev Choice routing and generic model-provider/status infrastructure.
 - Opt-in OpenCode isolated launch profile and acceptance scripts.
+- Opt-in three-tool MCP runtime (`SKILL_HUB_MCP_MODE=runtime`), retaining default full compatibility. Offline protocol-size and explicit-model OpenCode comparison scripts; see [minimal runtime and evidence](../ops/MINIMAL_RUNTIME.md).
 
 ## Host verification recorded before publication
 
@@ -24,6 +25,8 @@ This page is the current overview. Older Phase documents record development hist
 | TypeSafe/Jev | Live Choice routing on public synthetic descriptions | No labeled quality benchmark or calibrated threshold |
 
 Connecting Hub does not automatically disable a host's discovery. This repository does not ship the developer's global command wrappers, personal configs or model credentials.
+
+Current local evidence also includes [50-task draft recall evaluation and Native/Hybrid/Hub-only pilot](../research/RUNTIME_REVIEW_20261012.md). The Native pilot uses 110 real catalog descriptions with synthetic bodies, not production Skill execution. Codex CLI temporary-home checks set all discovered entries disabled, but plugin controls and model-context exclusion remain unverified. Do not generalize these small samples into quality, billing or cross-host guarantees.
 
 ## Known limitations
 

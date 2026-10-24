@@ -16,6 +16,8 @@
 - 路由：按任务返回 Top-K skill  
 - 不把用户 100+ skill 全文灌进每次对话  
 
+使用Hub时，未知名称先`skill_search`再`skill_read`，精确名称直接`skill_read`；附件先`skill_files`。这些工具同时存在于full/runtime；`skill_fetch`仅属full，不能写成全局必需调用。
+
 ---
 
 ## 2. 路由规则（接到用户请求后的第一动作）

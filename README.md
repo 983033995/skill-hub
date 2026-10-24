@@ -21,6 +21,8 @@ This is an early **v0.1.0 source distribution**, not an npm release. macOS is th
 | Progressive reading | Catalog browsing, exact Skill fetch, attachment listings and paginated UTF-8 reads with hashes |
 | Static audit | Read-only risk findings with file/line/rule; incomplete scans are explicit; no scripts executed |
 | Diagnostics | Catalog/index freshness, provenance, conflicts, projection paths and lifecycle history |
+
+For a smaller Agent tool surface, opt into `SKILL_HUB_MCP_MODE=runtime` (search/read/files; full remains the default). See [runtime profiles and measurement](docs/ops/MINIMAL_RUNTIME.md). `pnpm benchmark:mcp` measures offline protocol bytes; live model usage requires explicit `pnpm benchmark:opencode provider/model` and a native OpenCode binary. These measurements do not imply every host disables native Skill discovery.
 | Compatibility sync | Explicit symlink/copy plans, backup gates, conflict reporting and verification |
 | Web viewer | Local read-only browser UI for browsing, search, details, attachments, history and audit |
 

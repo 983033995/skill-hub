@@ -53,6 +53,7 @@
 | [ops/OPERATIONS_AND_RISKS.md](./ops/OPERATIONS_AND_RISKS.md) | 运维流程、风险、回滚 | 运维策略变更 |
 | [ops/REMOTE_MCP.md](./ops/REMOTE_MCP.md) | 远端MCP现状、服务端Skill与鉴权要求（未实现） | 远端接入变化 |
 | [ops/MCP_INTEGRATION.md](./ops/MCP_INTEGRATION.md) | MCP 宿主配置（WorkBuddy/Cursor/…） | MCP/集成变更 |
+| [ops/MINIMAL_RUNTIME.md](./ops/MINIMAL_RUNTIME.md) | 可选三工具runtime、宿主边界及字节/真实用量测量 | runtime或计量变化 |
 | [ops/OPENCODE_HUB.md](./ops/OPENCODE_HUB.md) | OpenCode 零单项 Skill 安装入口与验收 | 运行时/验收变更 |
 | [ops/WORKBUDDY_HUB.md](./ops/WORKBUDDY_HUB.md) | WorkBuddy用户Skill停用、Hub接入、备份和待验证限制 | WorkBuddy接入/回归 |
 | [ops/QODER_HUB.md](./ops/QODER_HUB.md) | Qoder原生Skill停用、Hub接入和分层验收/登录阻塞 | Qoder接入/回归 |
@@ -82,6 +83,8 @@
 | 文档 | 说明 | 维护触发 |
 |------|------|----------|
 | [research/JEV_DECISION_LAYER.md](./research/JEV_DECISION_LAYER.md) | Jev 决策层观察、取舍与验证边界 | Jev 能力或外部证据更新 |
+| [research/MUSIC_SKILL_SEARCH_20261012.md](./research/MUSIC_SKILL_SEARCH_20261012.md) | MiniMax网页端音乐Skill的元数据、排名及正文漂移诊断 | 检索/Skill元数据变化 |
+| [research/RUNTIME_REVIEW_20261012.md](./research/RUNTIME_REVIEW_20261012.md) | runtime复核修正、50任务召回草案、Native试验与Codex隔离发现 | 评测与宿主证据变化 |
 
 ## 6. 决策与模板
 
@@ -92,6 +95,7 @@
 | [adr/0005-skill-scope-and-sources.md](./adr/0005-skill-scope-and-sources.md) | Skill scope、provenance 与独立 sources 决策 |
 | [adr/0007-hub-runtime-loading.md](./adr/0007-hub-runtime-loading.md) | Hub MCP 按需加载与 OpenCode 独立接入 |
 | [adr/0009-open-source-publication.md](./adr/0009-open-source-publication.md) | MIT公开源码、隔离CI与非npm发布边界 |
+| [adr/0010-minimal-runtime-mcp.md](./adr/0010-minimal-runtime-mcp.md) | 可选runtime与full兼容、宿主和开销证据分层 |
 | [adr/0008-typesafe-jev-semantic-router.md](./adr/0008-typesafe-jev-semantic-router.md) | Jev 可选语义路由与 BM25 降级 |
 | [adr/0006-managed-skill-lifecycle.md](./adr/0006-managed-skill-lifecycle.md) | 来源锁与完整目录版本管理 |
 | [adr/0000-template.md](./adr/0000-template.md) | 已归档的模板指针 |

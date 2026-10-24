@@ -214,6 +214,31 @@
 | P17-02 | 同步合并后本地/远端验证与文档 | done | agent | frozen-lockfile/typecheck/build/lint/test/docs/smoke和最终main CI |
 | P17-03 | 说明远端MCP当前支持与部署边界 | done | agent | stdio与HTTP/REST区别、服务端持久Skill、HTTPS/鉴权、两种token；不部署 |
 
+## Phase 18 — MiniMax网页端音乐检索诊断（2026-10-12）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P18-01 | 区分Skill能力、元数据、排序和索引漂移 | done | agent | 7次真实MCP搜索、7查询×2元数据内存对照、正文/脚本核对；docs:check通过；不生成音乐或改个人配置 |
+| P18-02 | 修复目标Skill网页端元数据及Hub词项权重/中文噪音 | done | agent | 真源备份/预览；六条部署MCP查询首位；OpenCode真实默认模型通过搜索/加载/附件识别 |
+| P18-03 | 内容漂移和算法版本检查，刷新部署并同步文档 | done | agent | 旧索引拒绝、hash漂移/坏链提示；156测试及完整门禁通过；ChatCut既有缺失保留，旧连接需重连 |
+
+## Phase 19 — 精简运行时与开销证据（2026-10-12）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P19-01 | 核对会话建议和官方宿主发现边界 | done | agent | 官方预算与单项禁用文档；Codex当前非零注入，Host/完整A-B-C保持未验证 |
+| P19-02 | 可选三工具runtime MCP与紧凑返回 | done | agent | 默认full兼容、隐藏调用拒绝、读取/附件/分页；实际部署三工具握手/音乐检索读取通过 |
+| P19-03 | 可复现MCP开销测量及真实OpenCode验证 | done | agent | 10/100/1000实际stdio字节；同模型full/runtime四场景成功，原始用量保留；完整Native A/B另列待办 |
+
+## Phase 20 — 复核修正与召回/宿主基线（2026-10-12）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P20-01 | 修正跨模式引导与英文措辞 | done | agent | 项目/宿主指南统一read；Qoder已有全局段备份后更新；runtime指引回归 |
+| P20-02 | 建立含无Skill任务的召回集，比较中文分词 | done | agent | 50草案标签、30需Skill/15无需/5单字；主Recall28→29/30，单字回退恢复2/5 |
+| P20-03 | 确认旧artifact回退，建立Native及Codex隔离证据 | done | agent | 旧artifact memory回退测试；Native六模型任务通过；Codex临时HOME58enabled→0但不声明零注入 |
+| P20-04 | 完整验证、文档与按逻辑拆分提交 | done | agent | router、runtime/benchmark、文档三组本地提交；159测试/完整门禁；个人Skill/凭据/outputs不进Git |
+
 ## 看板维护规则
 
 1. 同时 `in_progress` 建议 ≤ 3  

@@ -113,7 +113,7 @@ export async function runIndex(options: {
     skillCount: skills.length,
     catalogHash: currentCatalogHash,
     artifact: path.basename(artifactPath),
-    artifactFormat: "skill-hub.bm25.v1",
+    artifactFormat: "skill-hub.bm25.v2",
   };
   await writeFile(path.join(indexDir, "index-meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
   await appendHistory(layout.history, {

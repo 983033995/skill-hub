@@ -21,7 +21,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "docs:check": "node scripts/check-docs.mjs",
-    "smoke": "node scripts/accept-sandbox.mjs"
+    "smoke": "node scripts/accept-sandbox.mjs",
+    "benchmark:mcp": "node scripts/benchmark-mcp.mjs",
+    "benchmark:opencode": "node scripts/benchmark-opencode-runtime.mjs",
+    "eval:router": "node scripts/eval-router.mjs",
+    "benchmark:native": "node scripts/benchmark-opencode-native.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

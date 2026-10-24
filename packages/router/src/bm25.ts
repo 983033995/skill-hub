@@ -1,11 +1,6 @@
 import type { SkillMeta } from "@skill-hub/core";
 import { tokenize } from "./tokenize.js";
-import type {
-  Bm25IndexArtifact,
-  RankedSkill,
-  RouteQuery,
-  RouterEngine,
-} from "./types.js";
+import type { Bm25IndexArtifact, RankedSkill, RouteQuery, RouterEngine } from "./types.js";
 
 interface DocEntry {
   meta: SkillMeta;
@@ -16,7 +11,7 @@ interface DocEntry {
 
 /**
  * 内存 BM25 引擎（Okapi BM25）。
- * 字段加权：name ×3 计入 token 流（通过重复拼接实现）。
+ * 每个字段内去重，字段权重独立累计：name ×3、keywords ×3、description ×1。
  */
 export class Bm25Router implements RouterEngine {
   readonly engineId = "bm25" as const;
@@ -37,23 +32,22 @@ export class Bm25Router implements RouterEngine {
     let totalLen = 0;
 
     for (const meta of skills) {
-      const text = [
-        meta.name,
-        meta.name,
-        meta.name,
-        meta.description,
-        ...(meta.keywords ?? []),
-      ].join(" ");
-      const tokens = tokenize(text);
       const tf = new Map<string, number>();
-      for (const t of tokens) {
-        tf.set(t, (tf.get(t) ?? 0) + 1);
+      for (const [text, weight] of [
+        [meta.name, 3],
+        [meta.description, 1],
+        [(meta.keywords ?? []).join(" "), 3],
+      ] as const) {
+        for (const term of tokenize(text)) {
+          tf.set(term, (tf.get(term) ?? 0) + weight);
+        }
       }
       for (const term of tf.keys()) {
         this.df.set(term, (this.df.get(term) ?? 0) + 1);
       }
-      this.docs.push({ meta, tf, length: tokens.length || 1 });
-      totalLen += tokens.length || 1;
+      const length = [...tf.values()].reduce((sum, weight) => sum + weight, 0) || 1;
+      this.docs.push({ meta, tf, length });
+      totalLen += length;
     }
 
     this.avgdl = this.docs.length > 0 ? totalLen / this.docs.length : 0;
@@ -62,7 +56,7 @@ export class Bm25Router implements RouterEngine {
   /** 将 BM25 运行时状态转换为可落盘、可重新加载的 JSON artifact。 */
   toArtifact(): Bm25IndexArtifact {
     return {
-      version: 1,
+      version: 2,
       engine: "bm25",
       k1: this.k1,
       b: this.b,
@@ -78,8 +72,8 @@ export class Bm25Router implements RouterEngine {
 
   /** 从 index/bm25.json 恢复索引，不读取 Skill 正文。 */
   loadArtifact(artifact: Bm25IndexArtifact): void {
-    if (artifact.version !== 1 || artifact.engine !== "bm25") {
-      throw new Error("不支持的 BM25 index artifact 版本或 engine");
+    if (artifact.version !== 2 || artifact.engine !== "bm25") {
+      throw new Error("BM25 index artifact 算法版本过期或 engine 不支持；请运行 index --rebuild");
     }
     if (!Number.isFinite(artifact.avgdl) || artifact.avgdl < 0) {
       throw new Error("BM25 index artifact.avgdl 无效");
@@ -108,6 +102,18 @@ export class Bm25Router implements RouterEngine {
 
     const N = this.docs.length;
     const scored: RankedSkill[] = [];
+    // 单字中文查询没有 bigram；仅此场景按元数据中的字符覆盖回退。
+    // 不把 unigram 放回普通查询，避免恢复“生/成/音”等噪音召回。
+    const singleChar = /^[\u4e00-\u9fff]$/.test(q.text.trim()) ? q.text.trim() : null;
+    const singleCharFrequency = (meta: SkillMeta) =>
+      singleChar
+        ? (meta.name.includes(singleChar) ? 3 : 0) +
+          (meta.description.includes(singleChar) ? 1 : 0) +
+          ((meta.keywords ?? []).some((keyword) => keyword.includes(singleChar)) ? 3 : 0)
+        : 0;
+    const singleCharDf = singleChar
+      ? this.docs.filter((doc) => singleCharFrequency(doc.meta) > 0).length
+      : 0;
 
     for (const doc of this.docs) {
       let score = 0;
@@ -117,17 +123,19 @@ export class Bm25Router implements RouterEngine {
       for (const term of qTokens) {
         if (seen.has(term)) continue;
         seen.add(term);
-        const f = doc.tf.get(term) ?? 0;
+        const f = singleChar ? singleCharFrequency(doc.meta) : (doc.tf.get(term) ?? 0);
         if (f === 0) continue;
-        const df = this.df.get(term) ?? 0;
+        const df = singleChar ? singleCharDf : (this.df.get(term) ?? 0);
         const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
-        const denom =
-          f + this.k1 * (1 - this.b + (this.b * doc.length) / (this.avgdl || 1));
+        const denom = f + this.k1 * (1 - this.b + (this.b * doc.length) / (this.avgdl || 1));
         const termScore = idf * ((f * (this.k1 + 1)) / denom);
         score += termScore;
+        if (singleChar) reasons.push("single_char_fallback");
 
         if (doc.meta.name.includes(term) || tokenize(doc.meta.name).includes(term)) {
           reasons.push(`name_token:${term}`);
+        } else if (tokenize((doc.meta.keywords ?? []).join(" ")).includes(term)) {
+          reasons.push(`keyword_hit:${term}`);
         } else {
           reasons.push(`desc_hit:${term}`);
         }

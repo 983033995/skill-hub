@@ -116,6 +116,7 @@ skill-hub 采用 **本地优先、单机可运行** 的分层架构：
 
 - 以 MCP Tools 暴露 `skill_search` / `skill_fetch` / `skill_stats` 等
 - stdio 传输（默认）
+- 默认full保留11个工具；显式runtime仅search/read/files，复用相同router/runtime安全边界，拒绝隐藏工具调用（ADR 0010）。宿主原生发现禁用与MCP配置独立验收。
 
 ---
 

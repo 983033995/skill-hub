@@ -17,7 +17,9 @@
 
 ## 下一步顺序
 
-### P12 — 最小 manifest（下一切片）
+### P12 — 最小 manifest（旧计划，降为显式兼容）
+
+2026-10-12：后续默认推进顺序改为精简runtime与真实用量/宿主验收，见[ADR 0010](../adr/0010-minimal-runtime-mcp.md)。全量available_skills会恢复随库规模增长的发现上下文，不作为Hub-only默认入口。
 
 产出 `skill-hub manifest --format agents-md --out <path>`：只生成 name/description、Hub MCP 的搜索/读取提示和 scope；默认 dry-run，写入采用临时文件 + rename。禁止把正文全文或普通 Markdown 写入 manifest。验收：OpenSkills 风格的 `<available_skills>` 可被项目 Agent 阅读，manifest 与 catalog hash 可追踪。
 

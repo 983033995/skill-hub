@@ -49,7 +49,7 @@ export interface IndexMeta {
 }
 
 export interface Bm25IndexArtifact {
-  version: 1;
+  version: 2;
   engine: "bm25";
   k1: number;
   b: number;

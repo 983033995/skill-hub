@@ -285,3 +285,24 @@ cli 稳定 ↘ mcp(M3)
 - [x] 合并后main三组远端CI和本地141测试/完整门禁通过，文档同步；新#6不属本次合并范围。
 - [x] 远端MCP方案说明，明确当前尚无HTTP MCP入口。
 - 后续远端产品工作需要目标机器、持久化Skill范围、认证方案与客户端支持决定；本轮不开放端口/迁移用户Skill或伪造远端URL。
+
+## Phase 18 — 音乐检索质量与正文漂移（2026-10-12）
+
+- [x] MiniMax网页端Skill补description/keywords和显式backend选择说明，备份后刷新已登记元数据。
+- [x] 修复名称/关键词字段权重、减少中文单字噪音；合成网页/API/歌单意图回归和真实MCP查询。
+- [x] BM25 artifact v2迁移，校验当前SKILL.md hash；坏链/旧算法不再误报fresh。
+- 当前对话中已连接的旧MCP需要重连；本机ChatCut旧版本链接缺失已报告，未改动插件路径。音乐实际生成和跨语言语义检索另行验证。
+
+## Phase 19 — 精简runtime与计量（2026-10-12）
+
+- [x] 可选三工具runtime与默认full兼容；OpenCode显式--mcp-mode选择，精简任务指引。
+- [x] 实际MCP协议字节基准，10/100/1000库下入口大小不变；真实OpenCode同模型full/runtime试验入口。
+- [ ] Codex模型实际上下文/插件范围验收，以及Native/Hybrid/Hub-only业务质量/长会话Token A/B/C。临时CODEX_HOME启用状态及Native元数据试验已在Phase20记录，不替代这些目标。
+- [ ] 宿主Hook与语义增强在能力/漏检证据成立后再推进。全量manifest保留为显式兼容方案，不作为默认发现机制。
+
+## Phase 20 — 复核修正与基线（2026-10-12）
+
+- [x] 跨模式search/read引导，Qoder真实全局已有段备份后修正；旧artifact查询回退已验证。
+- [x] 50任务草案评测与单字查询专用回退；标注待复核，无Skill候选率不等于误激活率。
+- [x] 110真实元数据+1合成Skill的Native/Hybrid/Hub-only六任务试验，发现列表及缓存分别记录。
+- [x] Codex临时HOME用户/项目/系统enabled状态检查，个人配置不变；插件/模型实际注入未验证。

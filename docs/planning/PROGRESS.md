@@ -453,3 +453,41 @@
 - **合并后证据**：main d10555c0三组[CI37933317703](https://github.com/983033995/skill-hub/actions/runs/37933317703)成功；本地frozen install/typecheck/build/lint/141tests（37files）/docs（54files、零断链）/compiled stdio MCP smoke通过。
 - **范围**：#4失败toolchain组不动；期间自动新增#6Vitest4.1.11不属于指定四个目标，未合并。个人Hub与宿主配置不改，未调用收费模型。
 - **远端说明**：REMOTE_MCP.md核对源码仅StdioServerTransport，区分远端StreamableHTTP协议与当前未实现能力；Web REST/GitHub不是MCP服务。明确HTTPS/Origin/鉴权、服务端catalog/Skill路径迁移、持久化、客户端兼容和验收要求；Hub访问token与TypeSafeKey分离。本轮没有部署或打开端口。
+
+
+### 2026-10-12 — Phase 18：MiniMax网页端音乐检索诊断
+
+- **真实复现**：7次MCP查询；BM25/110候选/无过滤或降级。完整需求首位multi-provider-image-tts；“网页版 minimax music”首位playlist，目标第6，默认Top-5遗漏。
+- **能力核对**：multi-provider-image-tts正文与附件已有backend web脚本链路；minimax-music-gen/playlist要求mmx/API。网页端能力未进入description/keywords。未生成音乐或读取凭据。
+- **漂移与限制**：目标正文hash与9月25日catalog不一致，当前description一致；index_fresh仅验证catalog一致性。名称重复权重被tokenize去重抵消，作为独立缺陷记录，未修复。
+- **对照**：源码构建Router对7查询×2元数据版本完成内存验证；只补keywords使6条具体生成/网页端意图排第1，短查询从第6升第1；纯品牌查询仍偏playlist。未改个人Skill、catalog或算法；报告MUSIC_SKILL_SEARCH_20261012.md。docs:check通过（55文件、零断链），git diff --check通过。
+
+
+### 2026-10-12 — Phase 18：网页端音乐Skill与检索修复落地
+
+- **Skill真源**：备份后补网页端/免API Key生成、历史查询下载的description、9个keywords和显式provider/backend说明；源仓库已有未提交修改原样保留，其它Skill正文未改。备份位于本机~/.skill-hub/backups/music-search-fix-20261012-141056。
+- **Hub**：名称×3/keywords×3/description×1按字段累计，修复去重抵消权重；多字中文bigram减少单字噪音；artifact v2拒绝旧索引。索引检查登记SKILL.md的实际hash，限制普通文件/10MiB/根内链接，兼容小写skill.md；不索引正文或扫描附件。
+- **数据/部署**：canonical重建预览被既有ChatCut 1.10.14旧插件坏链阻断；改为逐项预览已登记110项，刷新3项元数据并保留缺失记录，构建v2索引。备份后统一更新本机MCP core/shared/router/server构建文件；不修改entry.js/凭据/其它宿主设置，不重启运行中任务。ChatCut缺失现在明确返回fresh=false；当前对话旧连接仍需重连。
+- **真实验收**：实际部署目录新stdio MCP六条中文/英文网页端查询首位multi-provider-image-tts，fetch及附件发现通过。OpenCode现有默认模型新会话通过search→fetch→files/read，识别generate_music.sh及--provider minimax --backend web，仅调用Hub读取工具；未生成音乐或调用Jev。证据outputs/music-search-mcp-regression-20261012.json和outputs/music-search-opencode-regression-20261012.json，均不持久化工具返回正文。
+- **门禁**：37文件156tests、typecheck/build/lint/docs（55文件零断链）/隔离smoke/diff check通过。200项小正文合成库20次稳态查询含hash校验，p95约12.6ms；真实大正文/网络盘性能不作推断。API/PRD/ROADMAP和诊断报告同步。
+
+
+### 2026-10-12 — Phase 19：精简runtime与计量证据
+
+- **建议核对**：读取用户提供会话完整建议，官方OpenAI Skills页核对Codex初始name/description/path预算（2%窗口或未知窗口8000字符）及单项禁用需重启；Context7核对MCP handler/instructions。当前Codex会话仍有原生Skill清单，不宣称零注入。全量manifest调整为显式兼容，Hook/通用Host Adapter与完整Native/Hybrid/Hub-only评估保持待验收。
+- **实现**：SKILL_HUB_MCP_MODE=runtime仅search/read/files；默认full及11工具响应保留。runtime Top-3/8000字符、紧凑候选与索引警告、简化Jev信号；隐藏工具调用拒绝。OpenCode新增--mcp-mode与简短指引，不改原生发现策略或个人设置。ADR0010及API/PRD/ROADMAP/README/STATUS更新。
+- **离线证据**：pnpm benchmark:mcp在10/100/1000合成库真实stdio握手，入口JSON字节full5442/runtime2263（约减58.4%）且跨规模不变。报告Token为null，不把字节换算为实测Token。
+- **真实模型**：pnpm benchmark:opencode明确指定cliproxyapi/gemini-3.8-flash-high及native binary，在100项合成库full/runtime四场景通过；求和均search→fetch/read→files，普通2+2均无工具。首请求input6512→5521、6484→5495；原始usage/cache/cost记录，不将代理cost=0当免费，不外推质量和Native节省率。结果outputs/opencode-runtime-comparison-latest.json；临时试验结果单独保留。
+- **本机部署**：MCP server构建文件备份到~/.skill-hub/backups/minimal-runtime-<UTC时间>后更新，默认full；冷启动实际部署runtime三工具、音乐查询首位与读取通过，既有ChatCut警告保留。未重启已有连接/任务、未修改凭据或其它宿主。
+- **验证**：37文件158测试、typecheck/build/lint/docs（57文件零断链）/隔离smoke/diff检查通过；两个新增脚本已实际运行。没有把协议字节基准或两任务试验当成完整三模式Token/质量验收。
+
+
+### 2026-10-12 — Phase 20：复核修正、召回草案与Native基线
+
+- **引导**：runtime英文改为This server does not disable native Skill discovery；项目AGENTS、MCP/Qoder/WorkBuddy指南采用两模式都有的skill_read。实际Qoder已有全局Hub段经预览/hash和备份只替换必需fetch为read；未改Codex全局（未发现该旧段）或provider/宿主设置。runtime仍3工具。
+- **召回**：新增evals/router/recall.v1.json和pnpm eval:router；50标签为Agent拟定待Owner复核，不是用户历史。当前110catalog三种排序共享元数据，主Recall@5旧28/30→新29/30、Hit@1 23→25/30，无需Skill任务候选率15/15→7/15；误激活率未知。单字探针初版0/5，新增专用回退恢复2/5，普通查询不恢复unigram。剩余英文查询中文用途漏召回保留。
+- **旧artifact**：重跑index-store/runtime相关测试确认v1拒绝后skillSearch返回memory结果及rebuild建议，未直接报错。
+- **Native试验**：新增pnpm benchmark:native；明确同模型gemini-3.8-flash-high，110真实catalog名称/描述加1合成验收Skill，正文全合成。debug Native/Hybrid各111磁盘项，Hub-only0，内置各1，六模型任务全通过。首请求input求和Native23347/Hybrid23998/Hub5483，普通23318/23969/5454；后续Native/Hybrid缓存读21296/21948，费用不作比例推断，不称生产Skill质量验收。
+- **Codex隔离**：CLI0.162.0-alpha.17.2 app-server skills/list进程覆盖125发现项enabled123→0；临时CODEX_HOME58发现项enabled58→0（repo1/user52/system5，合成project/home均禁用），个人config hash一致。列表数量不变；未复制插件/凭据或发模型请求，插件/模型初始注入仍未验证。
+- **部署**：router/server构建备份后更新本机MCP，冷启动runtime实际三工具、正确英文指引、音乐查询首位与单字非空通过，ChatCut坏链警告保留；不重启已有任务。Qoder文案备份runtime-guidance-20261012-162655，构建备份runtime-review-<UTC时间>。
+- **门禁**：37文件159tests、build/typecheck/lint/docs（58文件零断链）/smoke/diff检查通过；离线基准当前full5442/runtime2262字节（文案修正少1字节），仍约减58.4%。后续按router、runtime/benchmark、文档三组提交，个人Skill/输出/配置不进Git。

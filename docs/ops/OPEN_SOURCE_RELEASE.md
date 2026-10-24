@@ -1,6 +1,6 @@
 # Public repository configuration
 
-Status: Active · Verified: 2026-10-09
+Status: Active · Verified: 2026-10-24
 
 Repository: [983033995/skill-hub](https://github.com/983033995/skill-hub), public source distribution v0.1.0 under MIT. This is not an npm release; root/workspaces keep private=true to prevent accidental package publishing.
 
@@ -18,7 +18,7 @@ Repository: [983033995/skill-hub](https://github.com/983033995/skill-hub), publi
 - Private vulnerability reporting, vulnerability alerts and automated security fixes enabled.
 - Secret scanning and push protection enabled. Non-provider pattern/validity scanning are not claimed as enabled.
 - Actions default workflow permission read; workflows cannot approve pull requests.
-- main-integrity ruleset prevents branch deletion/non-fast-forward and requires the three CI contexts. Repository administrators retain an explicit emergency bypass; this is not a no-bypass protected workflow.
+- main-integrity ruleset requires pull requests to `main`, prevents branch deletion/non-fast-forward, requires the three CI contexts, and resolves review conversations before merge. It requires zero approvals to support the single-maintainer workflow. The existing emergency bypass remains; this is not a no-bypass protected workflow.
 
 The initial public code commit `ddc75c8` completed all three matrices: [CI evidence](https://github.com/983033995/skill-hub/actions/runs/37926838060). Inspect the latest branch checks for subsequent commits. Community profile was 100% at verification; this indicator is not a software-quality or security guarantee.
 

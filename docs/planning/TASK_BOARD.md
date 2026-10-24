@@ -239,6 +239,12 @@
 | P20-03 | 确认旧artifact回退，建立Native及Codex隔离证据 | done | agent | 旧artifact memory回退测试；Native六模型任务通过；Codex临时HOME58enabled→0但不声明零注入 |
 | P20-04 | 完整验证、文档与按逻辑拆分提交 | done | agent | router、runtime/benchmark、文档三组本地提交；159测试/完整门禁；个人Skill/凭据/outputs不进Git |
 
+## Phase 21 — GitHub提交流程完善（2026-10-24）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P21-01 | main强制PR、双语Issue表单与贡献文档 | done | codex | ruleset要求PR/三组CI/讨论解决；Issue使用Bug/Feature表单或私密安全渠道；Actions本地门禁通过 |
+
 ## 看板维护规则
 
 1. 同时 `in_progress` 建议 ≤ 3  

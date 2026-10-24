@@ -1,26 +1,26 @@
-name: Bug report
-description: Report a reproducible failure using synthetic inputs.
+name: Bug report / 问题报告
+description: Report a reproducible failure using synthetic inputs / 使用合成输入报告可复现的问题
 title: "[Bug] "
 body:
   - type: markdown
     attributes:
-      value: "For vulnerabilities use SECURITY.md. Never attach credentials or private Skill content."
+      value: "For vulnerabilities use SECURITY.md. Never attach credentials or private Skill content. / 漏洞请使用 SECURITY.md 的私密渠道；不要附上凭据或私人 Skill 内容。"
   - type: textarea
     id: environment
     attributes:
-      label: Environment
-      description: OS, Node/pnpm versions, commit, host and command.
+      label: Environment / 运行环境
+      description: OS, Node/pnpm versions, commit, host and command / 操作系统、Node/pnpm 版本、提交号、宿主和命令。
     validations:
       required: true
   - type: textarea
     id: reproduction
     attributes:
-      label: Steps to reproduce
-      description: Minimal fixture and commands; include actual versus expected behavior.
+      label: Steps to reproduce / 复现步骤
+      description: Minimal fixture and commands; include actual versus expected behavior / 提供最小 fixture 和命令，并说明实际结果与预期结果。
     validations:
       required: true
   - type: textarea
     id: evidence
     attributes:
-      label: Redacted evidence
-      description: Error codes and relevant output without sensitive paths or data.
+      label: Redacted evidence / 脱敏证据
+      description: Error codes and relevant output without sensitive paths or data / 提供错误码和相关输出，移除敏感路径与数据。

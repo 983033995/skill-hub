@@ -29,4 +29,8 @@ Tests are offline except localhost HTTP integration checks. Live OpenCode/Jev ev
 
 Branch names are descriptive (`codex/…`, `feat/…`, `fix/…` or `docs/…`). Commits use Conventional Commits, for example `fix(router): preserve explicit no-match results`. PRs should state the problem, changed behavior, validation and rollback implications; use the repository PR template.
 
+Changes to `main` must go through a pull request. The `main-integrity` ruleset requires the Linux Node 20, Linux Node 22 and macOS Node 22 CI checks, and requires review conversations to be resolved before merge. It does not require an approval count, so the single maintainer can merge after CI and review; the existing emergency bypass remains available.
+
+提交到 `main` 的改动必须通过 PR。`main-integrity` 规则要求 Linux Node 20、Linux Node 22 和 macOS Node 22 三组 CI 全部通过，并在合并前解决 review 讨论；由于当前是单维护者仓库，不强制审批数。现有紧急绕过保留。
+
 Contributions are licensed under the [MIT license](LICENSE). Only contribute material you have permission to license; third-party Skills are not included in the license of this manager. Report vulnerabilities privately as described in [SECURITY](SECURITY.md).

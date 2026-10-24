@@ -1,18 +1,18 @@
-name: Feature request
-description: Describe a user problem and a bounded change.
+name: Feature request / 功能建议
+description: Describe a user problem and a bounded change / 描述用户问题及范围明确的改动
 title: "[Feature] "
 body:
   - type: textarea
     id: problem
     attributes:
-      label: User problem
-      description: What task is currently blocked? Include the existing workaround.
+      label: User problem / 用户问题
+      description: What task is currently blocked? Include the existing workaround / 当前什么任务受阻？请写出现有替代办法。
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: Proposed behavior and acceptance
-      description: Include scope, non-goals and how the behavior could be tested.
+      label: Proposed behavior and acceptance / 预期行为与验收标准
+      description: Include scope, non-goals and how the behavior could be tested / 请说明范围、非目标以及验证方式。
     validations:
       required: true

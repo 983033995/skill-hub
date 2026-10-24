@@ -491,3 +491,10 @@
 - **Codex隔离**：CLI0.162.0-alpha.17.2 app-server skills/list进程覆盖125发现项enabled123→0；临时CODEX_HOME58发现项enabled58→0（repo1/user52/system5，合成project/home均禁用），个人config hash一致。列表数量不变；未复制插件/凭据或发模型请求，插件/模型初始注入仍未验证。
 - **部署**：router/server构建备份后更新本机MCP，冷启动runtime实际三工具、正确英文指引、音乐查询首位与单字非空通过，ChatCut坏链警告保留；不重启已有任务。Qoder文案备份runtime-guidance-20261012-162655，构建备份runtime-review-<UTC时间>。
 - **门禁**：37文件159tests、build/typecheck/lint/docs（58文件零断链）/smoke/diff检查通过；离线基准当前full5442/runtime2262字节（文案修正少1字节），仍约减58.4%。后续按router、runtime/benchmark、文档三组提交，个人Skill/输出/配置不进Git。
+
+### 2026-10-24 — GitHub Actions、PR流程与Issue表单收口
+
+- **Actions**：确认现有CI覆盖PR、main推送和手动运行；冻结依赖安装后运行typecheck/build/lint/test/docs/smoke，权限只读并固定Action SHA，本次无需另建重复workflow。
+- **main规则**：main-integrity新增强制PR与review讨论解决，保留三组CI、零强制审批数和既有紧急绕过；API读回验证生效。
+- **提交与模板**：CONTRIBUTING明确main必须走PR；PR模板和Bug/Feature表单双语化；关闭空白Issue，漏洞仍走私密报告链接。
+- **验证**：本地typecheck/build/lint/159测试/docs（58文件无断链）/smoke及配置文件格式检查通过。

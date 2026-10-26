@@ -54,11 +54,11 @@ async function main() {
       `https://registry.npmjs.org/${encodeURIComponent(report.name)}/${report.version}`,
     );
     let response;
-    for (let attempt = 0; attempt < 5; attempt++) {
+    for (let attempt = 0; attempt < 12; attempt++) {
       url.searchParams.set("release_check", `${Date.now()}-${attempt}`);
       response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
-      if (response.status !== 404 || attempt === 4) break;
-      await delay(3000);
+      if (response.status !== 404 || attempt === 11) break;
+      await delay(15_000);
     }
     if (!response.ok) throw new Error(`Registry metadata lookup failed: HTTP ${response.status}`);
     const metadata = await response.json();

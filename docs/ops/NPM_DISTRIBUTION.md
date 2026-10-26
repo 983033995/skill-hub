@@ -1,6 +1,6 @@
 # npm distribution and GitHub Actions publishing
 
-Status: 0.2.0 published; 0.2.1 Action release in preparation · Updated: 2026-10-26
+Status: 0.2.1 published through GitHub Actions OIDC · Updated: 2026-10-26
 
 The source root and all workspaces remain `private: true`. Packaging creates a separate installable command package; it does not change npm credentials or upload anything. See [ADR 0014](../adr/0014-single-npm-distribution.md).
 
@@ -23,7 +23,7 @@ Local acceptance uses only synthetic Skills and an isolated Hub. It verifies CLI
 ## Use a local tarball
 
 ```bash
-npm install --prefix ./hub-trial /absolute/path/to/zhangheteng-skill-hub-0.2.0.tgz
+npm install --prefix ./hub-trial /absolute/path/to/zhangheteng-skill-hub-0.2.1.tgz
 npm exec --offline --prefix ./hub-trial -- skill-hub version --json
 ```
 
@@ -50,3 +50,12 @@ For each later release: update the root/workspace/protocol versions and release 
 The release job directly reads official version metadata and downloads its registered tarball, verifies bytes against the tested integrity, then installs in a fresh prefix and repeats CLI/MCP/Web acceptance. This avoids stale mirror metadata for a newly created package and does not modify personal npm configuration. npm installs of public dependencies may still contact the registry. If a publish response is uncertain, inspect the registry first; do not blindly retry or bump the version.
 
 Trusted publishing adds npm provenance for this public repository/package. The initial 0.2.0 was published manually and does not claim Action provenance. A broken later version is repaired by a new version; automatic unpublish or dist-tag rollback is not configured. Restricting existing npm tokens/account settings is a separate operation and is not changed by this workflow.
+
+## Verified release evidence
+
+- Package: [@zhangheteng/skill-hub 0.2.1](https://www.npmjs.com/package/@zhangheteng/skill-hub/v/0.2.1); tag `v0.2.1` at `12d023177b73b5af20d1a9b765081b55a2f193c4`.
+- [Action run](https://github.com/983033995/skill-hub/actions/runs/40319985700): three CI matrices, OIDC publication and registry acceptance. The first attempt published successfully but hit a short registry-visibility 404 during verification; retry checks the already-published integrity and skips duplicate upload.
+- Registry integrity: `sha512-PCF++fVXN2Dyr6Os3z0zaw3xm82JYoitNbWFbMuLZiZUHutsKaUzyEV5X9BCrcByyaOlUrHIE2RFSaVk7b04kg==`, 93 files / 144431 bytes. This is the accepted Action artifact, not an assertion that a different local toolchain produces identical tar bytes.
+- npm's SLSA provenance identifies the public GitHub repository, `.github/workflows/publish-npm.yml`, `refs/tags/v0.2.1`, the source commit above, and Action attempt 1. No long-lived npm token is installed in GitHub.
+
+Registry verification waits up to twelve bounded attempts with 15-second spacing for newly published metadata. Action artifact replacement is allowed on reruns; prior source tags and published npm versions are never moved or overwritten.

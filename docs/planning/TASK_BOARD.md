@@ -15,7 +15,7 @@
 
 - 已实现：受管安装/更新/回滚/同内容来源迁移、按需 MCP、Web 使用率与预算、主流 Agent 来源盘点。
 - 当前复核：见 [2026-10-26 完成情况审计](COMPLETION_REVIEW_20261026.md)；历史条目的测试数量与部署记录只描述当时状态。
-- 待完成：Owner 复核路由标签及显式 live Jev 授权；WorkBuddy/Qoder 模型/GUI 回归；远端 MCP 与自动升级等尚未实现。
+- 待完成：Owner 复核路由标签及显式 live Jev 授权；WorkBuddy/Qoder 模型/GUI 回归；Streamable HTTP已实现，公网部署/OAuth及自动升级仍未交付。
 - 生产 Skill、客户端配置和运行服务变更仍须按当前任务的显式授权范围执行。
 
 ---
@@ -302,4 +302,4 @@
 | P26-01 | 共享MCP处理器、独立HTTP入口和托管说明 | done | codex | 真实SDK/编译HTTP进程、SSE/中文检索/分页附件、鉴权与限制/断开超时回归；55文件251测试及完整门禁通过，公网部署另验 |
 | P26-02 | 单包npm发行准备及真实安装验收 | done | codex | 0.2.0候选、93文件/143114字节；真实npm安装/exec及CLI/stdio/HTTP/Web验收，保留workspace private；本地门禁通过 |
 | P26-03 | npm注册库发布与回读安装验收 | done | codex | @zhangheteng/skill-hub@0.2.0已发布，官方registry字节/integrity与新prefix CLI/stdio/HTTP/Web回读通过 |
-| P26-04 | GitHub Actions OIDC自动发布 | in_progress | codex | 完整CI/标签版本与main祖先校验、精确tarball、registry回读、npm信任绑定及0.2.1真实Action回执 |
+| P26-04 | GitHub Actions OIDC自动发布 | done | codex | npm精确信任绑定；v0.2.1 Action 40319985700发布/provenance/registry安装验收通过，main三组CI通过，无长期token |

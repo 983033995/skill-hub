@@ -15,7 +15,7 @@
 
 Skill Hub is a **local-first manager for Agent Skills**: directories containing a `SKILL.md` file and its scripts, references or assets. Maintain one library across your tools, route tasks to relevant Skills, and load the text you need through MCP.
 
-**MIT · Available on npm as `@zhangheteng/skill-hub`.** Version 0.2.0 is published; 0.2.1 adds GitHub Actions publishing. Run `npx --yes @zhangheteng/skill-hub version` or build from source. [npm distribution →](docs/ops/NPM_DISTRIBUTION.md) Linux and macOS are covered by CI; Windows deployment remains unverified.
+**MIT · Available on npm as `@zhangheteng/skill-hub`.** Version 0.2.1 is published through GitHub Actions OIDC with provenance and verified registry installation. Run `npx --yes @zhangheteng/skill-hub version` or build from source. [npm distribution →](docs/ops/NPM_DISTRIBUTION.md) Linux and macOS are covered by CI; Windows deployment remains unverified.
 
 ## Why Skill Hub
 

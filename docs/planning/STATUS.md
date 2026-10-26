@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-26 · Version: 0.2.0 published on npm; 0.2.1 automated-release preparation
+Updated: 2026-10-26 · Version: 0.2.1 published on npm via GitHub Actions OIDC
 
 The [2026-10-26 completion review](COMPLETION_REVIEW_20261026.md) records the source/test/documentation audit and remaining acceptance gaps.
 

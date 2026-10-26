@@ -1,6 +1,6 @@
 # Handoff / cross-session entry
 
-Status: Active · Updated: 2026-10-26 · Source/npm candidate: 0.2.0 published; 0.2.1 automated-release preparation
+Status: Active · Updated: 2026-10-26 · Source/npm release: 0.2.1, GitHub Actions OIDC verified
 
 Read HARNESS, AGENTS, [STATUS](STATUS.md), [completion review](COMPLETION_REVIEW_20261026.md), [API](../architecture/API.md) and TASK_BOARD. PROGRESS is append-only historical evidence, not a current feature checklist.
 

@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 (release preparation)
+
+- Automate stable tag releases through GitHub Actions/npm OIDC after full CI, tag/main ancestry checks, exact package acceptance and official registry integrity/install verification.
+- Bypass stale mirror metadata when accepting newly published registry packages; leave personal npm config untouched.
+
+## 0.2.0 (2026-10-26)
 
 ### Project review and public documentation (2026-10-26)
 
@@ -55,3 +60,15 @@
 - MCP routing instruction regression expectations match task-content discovery.
 
 This repository is distributed from source at v0.1.0. No npm publication or downloadable host configuration is promised by this changelog.
+
+### Streamable HTTP (unreleased; next minor release)
+
+- Add an independently started, stateless POST/SSE MCP entry with shared read-only handlers; existing stdio full/runtime behavior remains compatible.
+- Require Bearer authentication and Host/Origin validation; limit body/concurrency/deadlines, clean up disconnected requests, and expose only three runtime tools with server path diagnostics removed.
+- Add real SDK HTTP fixture acceptance and hosting guidance. Public deployment, OAuth, npm publication and host-app compatibility remain separate acceptance work.
+
+### npm distribution candidate
+
+- Generate a standalone command tarball with explicit production files and local internal module mappings; source workspaces stay private. No install hooks or internal registry packages are required.
+- Add actual npm installation/exec and CLI/MCP/Web acceptance to CI; align source/protocol versions to 0.2.0 while registry publication remains pending.
+- Fix installed HTTP bin symlink startup and CLI bundled-template lookup.

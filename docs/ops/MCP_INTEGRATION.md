@@ -1,10 +1,10 @@
 # MCP integration
 
-Status: Active · Updated: 2026-10-26 · Transport: stdio · Scope: read-only
+Status: Active · Updated: 2026-10-26 · Transport: stdio + Streamable HTTP · Scope: read-only
 
 ## Remote access status
 
-This release only has stdio. It does not expose a Streamable HTTP MCP URL; the local Web REST API is not MCP. A public GitHub repo is source hosting, not a running service. See [REMOTE_MCP](REMOTE_MCP.md) for hosting, authentication, server-side Skill storage and acceptance requirements.
+The existing stdio entry remains compatible. `pnpm mcp:http` starts a separate authenticated Streamable HTTP endpoint with three runtime tools for trusted clients. OAuth and real public deployment remain pending. The local Web REST API is not MCP. See [REMOTE_MCP](REMOTE_MCP.md) for startup, headers, storage and acceptance requirements.
 
 ## Build and connect
 

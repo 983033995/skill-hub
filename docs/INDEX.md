@@ -3,7 +3,7 @@
 > 与 `HARNESS.md` 保持一致。新增文档必须登记到本表。
 
 **项目**：skill-hub  
-**基线版本**：v0.1.0 · 公开源码文档更新2026-10-26
+**基线版本**：v0.2.0候选 · 公开源码文档更新2026-10-26
 
 ---
 
@@ -47,12 +47,14 @@
 
 | 文档 | 说明 | 维护触发 |
 |------|------|----------|
+| [ops/NPM_DISTRIBUTION.md](./ops/NPM_DISTRIBUTION.md) | 单包npm候选、安装验收与发布身份/回执边界 | 打包/发行变化 |
+| [ops/NPM_PACKAGE_README.md](./ops/NPM_PACKAGE_README.md) | 生成npm安装包所用README | 命令/安装行为变化 |
 | [ops/OPEN_SOURCE_RELEASE.md](./ops/OPEN_SOURCE_RELEASE.md) | 公开仓库社区/安全/CI设置和发布边界 | GitHub配置变更 |
 | [ops/USAGE_AND_CONTEXT.md](./ops/USAGE_AND_CONTEXT.md) | 本地使用记录、Web使用率/预算与估算边界 | 观测/预算变化 |
 | [ops/JEV_SETUP.md](./ops/JEV_SETUP.md) | Jev token、CLI/MCP/宿主配置与回退排查 | Jev配置变化 |
 | [ops/ENVIRONMENT.md](./ops/ENVIRONMENT.md) | 环境依赖与配置 | 依赖升级 |
 | [ops/OPERATIONS_AND_RISKS.md](./ops/OPERATIONS_AND_RISKS.md) | 运维流程、风险、回滚 | 运维策略变更 |
-| [ops/REMOTE_MCP.md](./ops/REMOTE_MCP.md) | 远端MCP现状、服务端Skill与鉴权要求（未实现） | 远端接入变化 |
+| [ops/REMOTE_MCP.md](./ops/REMOTE_MCP.md) | Streamable HTTP启动、Bearer鉴权、托管与尚待公网验收 | 远端接入变化 |
 | [ops/MCP_INTEGRATION.md](./ops/MCP_INTEGRATION.md) | MCP 宿主配置（WorkBuddy/Cursor/…） | MCP/集成变更 |
 | [ops/MINIMAL_RUNTIME.md](./ops/MINIMAL_RUNTIME.md) | 可选三工具runtime、宿主边界及字节/真实用量测量 | runtime或计量变化 |
 | [ops/OPENCODE_HUB.md](./ops/OPENCODE_HUB.md) | OpenCode 零单项 Skill 安装入口与验收 | 运行时/验收变更 |
@@ -101,6 +103,8 @@
 | [adr/0010-minimal-runtime-mcp.md](./adr/0010-minimal-runtime-mcp.md) | 可选runtime与full兼容、宿主和开销证据分层 |
 | [adr/0011-managed-update-plan-binding.md](./adr/0011-managed-update-plan-binding.md) | managed update文件差异、版本绑定token与写入确认兼容变化 |
 | [adr/0012-local-usage-context-estimates.md](./adr/0012-local-usage-context-estimates.md) | 本地可选使用观测与启发式上下文估算的语义/隐私边界 |
+| [adr/0013-streamable-http-hosting.md](./adr/0013-streamable-http-hosting.md) | 无会话HTTP传输、个人Bearer鉴权、runtime范围与托管边界 |
+| [adr/0014-single-npm-distribution.md](./adr/0014-single-npm-distribution.md) | 保留workspace私有的单包npm命令发行与安装门禁 |
 | [adr/0008-typesafe-jev-semantic-router.md](./adr/0008-typesafe-jev-semantic-router.md) | Jev 可选语义路由与 BM25 降级 |
 | [adr/0006-managed-skill-lifecycle.md](./adr/0006-managed-skill-lifecycle.md) | 来源锁与完整目录版本管理 |
 | [adr/0000-template.md](./adr/0000-template.md) | 已归档的模板指针 |

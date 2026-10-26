@@ -1,6 +1,6 @@
 # Handoff / cross-session entry
 
-Status: Active · Updated: 2026-10-26 · Source distribution: v0.1.0
+Status: Active · Updated: 2026-10-26 · Source/npm candidate: 0.2.0 published; 0.2.1 automated-release preparation
 
 Read HARNESS, AGENTS, [STATUS](STATUS.md), [completion review](COMPLETION_REVIEW_20261026.md), [API](../architecture/API.md) and TASK_BOARD. PROGRESS is append-only historical evidence, not a current feature checklist.
 
@@ -15,7 +15,7 @@ Read HARNESS, AGENTS, [STATUS](STATUS.md), [completion review](COMPLETION_REVIEW
 
 ## Remaining work and permissions
 
-P11-05 needs Owner-reviewed labels, an explicit catalog and explicit paid-request/metadata-upload authorization. WorkBuddy/Qoder model/GUI acceptance remains separate from config and MCP evidence. Remote MCP, write-capable Web management, background upgrades, portable whole-lock relocation and host-wide guaranteed savings are not complete.
+P11-05 needs Owner-reviewed labels, an explicit catalog and explicit paid-request/metadata-upload authorization. WorkBuddy/Qoder model/GUI acceptance remains separate from config and MCP evidence. Remote MCP now has a locally tested Streamable HTTP source entry (P26); actual hosting, OAuth and host-app acceptance remain pending. Write-capable Web management, background upgrades, portable whole-lock relocation and host-wide guaranteed savings are not complete.
 
 Do not rerun paid jobs or change personal hosts because a script exists. No production Skill upgrades, directory/config changes, service restarts or metadata uploads are authorized by this handoff alone.
 

@@ -350,3 +350,14 @@ cli 稳定 ↘ mcp(M3)
 - [x] 源码/测试/文档完成矩阵，中英文README、合成界面展示、可复现沙箱体验、数据模型/运维/交接刷新。
 - [x] 显式保留Owner标签/付费上传授权和宿主模型回归缺口，不将草案或历史配置当完成。
 - PR/远端CI/合并状态以GitHub实际回执为准；本地门禁不代替远端结果。
+
+## Phase 26 — Streamable HTTP 托管（2026-10-26）
+
+- [x] P26-01：共享只读处理器、独立无会话HTTP/SSE入口、Bearer/Host/Origin和资源限制、真实SDK与编译HTTP/stdio回归、托管文档；55文件251测试与本地门禁通过。
+- [ ] 选定托管账号/主机及授权Skill范围后，验收真实HTTPS地址、客户端、token轮换、持久化与备份；与源码实现分开记录。
+- OAuth、多租户及npm发行另行决策，当前保持源码分发。
+
+- [x] P26-02：单包npm候选及CLI/npm exec/stdio/HTTP/Web安装验收，源码private保留，版本0.2.0；有效npm身份和注册库发布另验。
+- [ ] P26-03：npm注册库发布、integrity回读及registry版本安装；当前身份查询401。
+
+- [ ] P26-04：GitHub Actions OIDC标签自动发布、npm精确信任绑定及0.2.1真实发行回读；manual dispatch仅dry-run。

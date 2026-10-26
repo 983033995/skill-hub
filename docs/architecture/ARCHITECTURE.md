@@ -17,7 +17,7 @@ skill-hub 采用 **本地优先、单机可运行** 的分层架构：
 ┌─────────────────────────────────────────────────────────┐
 │  Agents: WorkBuddy / Claude Code / Codex / Cursor ...   │
 └───────────────────────────┬─────────────────────────────┘
-                            │ stdio MCP / 显式原生目录兼容
+                            │ stdio / Streamable HTTP MCP / 显式原生目录兼容
 ┌───────────────────────────▼─────────────────────────────┐
 │  apps/cli  ·  apps/mcp-server                           │
 │  (人机入口 · Agent 入口)                                  │
@@ -115,7 +115,7 @@ skill-hub 采用 **本地优先、单机可运行** 的分层架构：
 ### 3.6 `apps/mcp-server`
 
 - 以 MCP Tools 暴露 `skill_search` / `skill_fetch` / `skill_stats` 等
-- stdio 传输（默认）
+- stdio传输保持默认；独立`http.ts`入口使用Streamable HTTP，每次POST创建独立Server/transport，响应SSE，结束或断开后清理。共享`server.ts`复用全部处理器，HTTP固定runtime和远端元数据裁剪；鉴权与HTTP限制仅在传输边界。见[ADR0013](../adr/0013-streamable-http-hosting.md)。
 - 默认full保留11个工具；显式runtime仅search/read/files，复用相同router/runtime安全边界，拒绝隐藏工具调用（ADR 0010）。宿主原生发现禁用与MCP配置独立验收。
 
 ---
@@ -264,3 +264,5 @@ P23-02：`router/usage-overview`组合当前catalog、taxonomy、usage与context
 ## Phase 6 — 默认运行时（ADR 0007）
 
 默认数据流为 Hub install/update → catalog/index → CLI browse/read/files 或 MCP skill_list/search/fetch/files/read → Agent 当前任务上下文。packages/router/runtime 提供共用分页及根内安全读取；sync 为显式兼容路径。OpenCode 以独立配置目录启动，仅继承模型提供方配置，不复制 Skill，禁用原生加载工具。
+
+P26-02：构建后按生产源码清单提取JS，TypeScript AST只转换workspace module specifier，经Node包内imports解析到同包模块；不改变源码模块边界或引入bundler。静态资源与配置模板保持既有目录层级。源码workspace继续private，生成的独立命令包才是候选发行对象；见[ADR0014](../adr/0014-single-npm-distribution.md)。

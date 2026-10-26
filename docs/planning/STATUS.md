@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-26 · Version: v0.1.0 source distribution
+Updated: 2026-10-26 · Version: 0.2.0 published on npm; 0.2.1 automated-release preparation
 
 The [2026-10-26 completion review](COMPLETION_REVIEW_20261026.md) records the source/test/documentation audit and remaining acceptance gaps.
 
@@ -36,7 +36,7 @@ Current local evidence also includes [50-task draft recall evaluation and Native
 
 ## Known limitations
 
-- Remote Streamable HTTP MCP is not implemented/deployed; current MCP is stdio only. Web REST endpoints cannot be used as an MCP URL. See [remote MCP](../ops/REMOTE_MCP.md).
+- Streamable HTTP MCP is implemented and locally verified with a real SDK client and synthetic stores; `pnpm mcp:http` serves a Bearer-authenticated, stateless three-tool runtime. Public hosting, OAuth and target host-app acceptance are pending. Web REST remains separate. See [remote MCP](../ops/REMOTE_MCP.md).
 
 - `restore --apply` replaces destination contents; review the manifest, retain a separate copy and test in a sandbox. Directory/lock and catalog/index changes are not one cross-package transaction.
 - `route --include-body` is currently reserved; use explicit read/fetch tools.

@@ -1,7 +1,9 @@
 # ADR 0011 — Managed update 的差异预览与版本绑定
 
-状态：Accepted  
-日期：2026-10-25  
+状态：Accepted
+
+日期：2026-10-25
+
 范围：P21-03；受管 Skill 的 update，不扩展安装、来源迁移或 Web 写接口。
 
 ## 背景

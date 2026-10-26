@@ -1,6 +1,6 @@
 # HARNESS — skill-hub 工程规范
 
-> **状态**：Active · MIT source distribution v0.1.0
+> **状态**：Active · MIT source / npm candidate v0.2.0
 > **生效日期**：2026-08-10 · 公开文档更新：2026-10-26
 > **适用范围**：本仓库全部文档、代码、脚本、配置与交付物
 > **维护原则**：规范变更须走 ADR；文档与实现不一致时，以可运行代码 + 最新 ADR 为准，并在 24h 内回写本文件
@@ -174,7 +174,7 @@ fix(router): handle empty description skills
 
 ### 5.3 PR 门槛
 
-开源许可：仓库自身代码/文档采用MIT，第三方Skill保持原许可；见ADR 0009。root/workspace的package.json保留private=true，防止未经授权的npm发布，不代表GitHub私有。
+开源许可：仓库自身代码/文档采用MIT，第三方Skill保持原许可；见ADR 0009。root/workspace的package.json保留private=true，防止未经授权的npm发布，不代表GitHub私有。ADR0014允许通过独立白名单构建生成npm命令包候选；真实注册库发布需身份/包名权限与精确tarball验收。
 
 PR 描述必须包含：
 
@@ -199,7 +199,7 @@ PR 描述必须包含：
 | 单测 | 变更相关包单测通过；新增逻辑必须有测 |
 | 集成测 | 触及路径/同步/索引的 PR 跑 integration |
 | 文档 | 行为变更同步 PRD/API/ROADMAP/PROGRESS，`pnpm docs:check`通过 |
-| 可复现 | `pnpm smoke`通过；只用合成fixture、临时Hub和沙箱Agent目标 |
+| 可复现 | `pnpm smoke`及`pnpm check:npm`通过；只用合成fixture、临时Hub和沙箱Agent目标；npm安装可访问公共依赖注册库 |
 | 评估数据 | 评估集进入 CI 前通过 `pnpm eval:check` 结构与静态隐私模式校验；draft 标签不作为质量门禁 |
 | 破坏性变更 | 有 ADR + 迁移说明 |
 | Managed update 确认 | update写入需预览planToken与显式apply/yes；变更拒绝旧计划，见ADR 0011 |

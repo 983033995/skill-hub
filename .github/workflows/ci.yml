@@ -41,3 +41,4 @@ jobs:
       - run: pnpm eval:check
       - run: pnpm docs:check
       - run: pnpm smoke
+      - run: pnpm check:npm

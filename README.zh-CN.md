@@ -14,7 +14,7 @@
 
 Skill Hub 是一个**本地优先的 Agent Skill 管理器**。它管理包含 `SKILL.md` 及脚本、参考资料、素材的目录，通过 MCP 提供任务搜索、正文与附件的按需读取，减少在不同工具之间反复维护副本的工作。
 
-**当前为 v0.1.0 早期源码发行，MIT 开源，尚无 npm 发布。** 本地 BM25 路由无需模型 Key；CI 覆盖 Linux/macOS，Windows 部署仍待验证。
+**当前为 v0.2.0 发行候选，MIT 开源，尚未上传 npm 注册库。** 可从源码构建，也可生成并验收本地安装包。[npm 打包说明 →](docs/ops/NPM_DISTRIBUTION.md) 本地 BM25 路由无需模型 Key；CI 覆盖 Linux/macOS，Windows 部署仍待验证。
 
 ## 为什么做 Skill Hub
 
@@ -148,7 +148,7 @@ flowchart LR
 
 ## 明确边界
 
-- **MCP 仅支持 stdio**，Web REST 不是远端 MCP 服务；Streamable HTTP 尚未实现。
+- **MCP 支持 stdio 和鉴权 Streamable HTTP**。HTTP 面向支持 Bearer 请求头的可信客户端，仅开放三个只读 runtime 工具；OAuth 与公网部署尚未交付。[托管指南 →](docs/ops/REMOTE_MCP.md)
 - **Web 本地只读且无鉴权**，默认仅监听回环地址；安装/升级等写操作使用 CLI。Markdown 渲染使用 CDN，失败时降级为纯文本。
 - **管理 Skill，不接管 Agent 执行器、知识库或插件授权**。静态审计是启发式扫描，不是安全证明。
 - **不承诺普遍节省比例**。原生发现、真实计费和任务质量依赖宿主实测；草案标签不构成校准后的质量门禁。

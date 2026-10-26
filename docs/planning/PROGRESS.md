@@ -727,3 +727,26 @@ P24-02后续验收完成：用户回复“可以”明确授权仅重启4173本�
 - 重写中英文README的定位/价值/体验/接入/功能/限制，新增原生SVG标记及本轮实际Web截图。截图为12项合成Skill和64次合成首段观测，不是个人库或真实业务用量；截图时隐藏source路径chip，原图未伪造模型效果。临时演示服务正常关闭，既有用户服务保留。
 - 更新运维、数据模型、用户场景、PRD、架构、STATUS/ROADMAP/HANDOFF/任务板、贡献检查与文档索引；历史升级/竞品/依赖审查标记为时间点记录。重复治理编号P21-01改GOV-01。公开副本对新增个人运行笔记仅保留Hub相关摘要，原完整笔记仍在原工作区，不纳入私人素材/路径/凭据/catalog/usage或outputs。
 - README临时Hub init/install预览与apply/route/read/context-cost/audit/manifest逐条复现，零模型调用。Vitest4下默认pnpm test和maxWorkers=2均54文件242项通过，build/lint/eval/docs/smoke通过；smoke personalHubTouched=false/paidModelCalls=0。提交前继续执行类型/格式/差异和发布范围检查，远端CI与合并仅以实际PR/Actions回执为准，不将本地结果写成远端绿。
+
+## 2026-10-26 — P26-01 Streamable HTTP 托管入口
+
+- 基于已合并main的隔离工作树实现；原工作区未提交文件和运行服务未改动。
+- 共享原MCP工具处理器，stdio入口继续兼容；新增`pnpm mcp:http`和HTTP bin。每次POST独立Server/transport，SSE返回、无session，固定search/read/files；所有请求Bearer鉴权、Host/Origin白名单，正文/并发/期限限制与断开清理。
+- HTTP读取移除绝对路径元数据，搜索警告、blocked附件和失败去掉服务端诊断细节；授权Skill正文不改写。新增ADR0013并同步API/PRD/架构/README/状态/运维文档。
+- 新增9项HTTP集成测试：真实SDK、编译入口、SSE/中文检索/分页/hash/附件、隐藏工具/路径拒绝、token/Host/Origin/方法/JSON/media/protocol、固定与chunked大正文、并发/断开/超时及SIGTERM退出。首次未build就误用`pnpm test --`导致全量CLI找不到dist，随后按项目顺序build并使用明确的Vitest过滤完成回归。
+- 验收：`pnpm typecheck`、`pnpm build`、`pnpm lint`、`pnpm test`（55文件/251测试）、`pnpm eval:check`、`pnpm docs:check`和`pnpm smoke`通过；smoke包含编译stdio验收、未触个人Hub、零付费模型调用。实际运行环境macOS/Node26；本轮未运行远端Node20/22 CI，不据此声称跨平台部署通过。
+- 用户询问公共托管与npm：核对Render自定义Node服务/HTTPS/付费持久盘、Smithery当前发布指南及npm注册库职责；文档区分服务运行、目录分发和包分发。所有package仍`private: true`，无npm发布、公共账号创建、付费资源、真实Skill上传或公网部署。OAuth、多租户及目标宿主验收单列待办。
+
+## 2026-10-26 — P26-02 npm 0.2.0 命令包候选
+
+- Owner要求继续推进npm分发。保留root/所有workspace的private，统一源码/协议版本为0.2.0，新增pack:npm/check:npm及ADR0014；实际发布未执行。
+- 单包自带四个命令及内部JS模块，TypeScript AST只转换module specifier，Node imports解析同包模块，外部依赖仍为锁定的MCP SDK。按当前生产源码枚举，排除陈旧dist、source map、测试、用户数据和安装hook；显式携带五个配置模板与Web静态资源。
+- 修正npm bin软链接下HTTP不启动和CLI默认模板相对层级；真实npm安装至独立prefix，从空cwd验证npm exec/version/init/五Agent模板/profile/安装路由附件、stdio握手分页hash、鉴权HTTP和Web HTML。无个人Hub操作或付费模型调用。
+- 精确候选：skill-hub@0.2.0，93文件、143114字节；tarball和pack-report/acceptance在本轮忽略的outputs目录，验收报告记录integrity。源码构建、类型、lint、55文件251测试、eval/docs及sandbox smoke通过；CI只追加npm安装门禁配置，未声称远端已运行。
+- 初次包验收的独立hash期望漏写sha256前缀，按既有协议修正；版本提升后修正两处旧版本测试期望。npm exec及全部包安装验收最终通过。
+- 公共registry对skill-hub返回404（不保证注册资格），npm whoami返回401。P26-02完成；P26-03等待有效npm登录/包名权限，随后才可发布精确tarball、回读integrity并重新安装registry版本验收。无npm上传、无远端部署、无用户凭据变更。
+
+## 2026-10-26 — P26-03 npm发布预检
+
+- Owner确认已完成npm登录；当前whoami为zhangheteng，skill-hub公开查询404。复核已验收0.2.0 tarball的93文件、SHA256和SHA512/integrity，常见凭据/本机路径静态检查无命中。
+- 同一tarball的npm publish dry-run通过；未把dry-run算作发布。补充check:npm --registry对精确已测报告进行registry integrity比对和新prefix回读安装验收，真正publish前核对源码提交CI。发布及回读结果另追加。

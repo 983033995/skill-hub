@@ -232,11 +232,11 @@ createExternalRouter // stdin/stdout 协议 + 降级 bm25
 
 ## 3. MCP 接口（Phase 3）
 
-当前实现仅stdio；没有Streamable HTTP远端endpoint。Web /api是REST，不是MCP传输。远端方案与未实现要求见 [REMOTE_MCP](../ops/REMOTE_MCP.md)。
+支持stdio和独立Streamable HTTP入口。Web /api仍是REST。HTTP为无会话POST/SSE传输，固定runtime三个读取工具，每次请求校验Bearer token与Host/Origin；不提供OAuth。配置及部署限制见 [REMOTE_MCP](../ops/REMOTE_MCP.md)。
 
-传输：**stdio MCP**。入口：`apps/mcp-server/dist/index.js`。
+传输：**stdio MCP**入口`apps/mcp-server/dist/index.js`；**Streamable HTTP**入口`apps/mcp-server/dist/http.js`（`pnpm mcp:http`）。HTTP协议端点`POST /mcp`，鉴权存活探测`GET /healthz`；GET/DELETE `/mcp`返回405，无Session-Id或独立GET事件流。HTTP runtime读取移除服务端绝对路径元数据，搜索警告和工具失败只返回通用诊断；Skill正文/描述保持原样。
 
-`SKILL_HUB_MCP_MODE`可选`full`（默认、兼容下表11工具）或`runtime`（仅skill_search/skill_read/skill_files）；非法值报E_CONFIG，隐藏工具也不能直接调用。runtime默认Top-3/文本8000字符，搜索返回紧凑候选name/description/score/scope与索引警告/简化decision；读取返回和安全边界不变。`createSkillHubMcpServer({mode?})`可供库调用显式选择模式。配置与开销计量见[MINIMAL_RUNTIME](../ops/MINIMAL_RUNTIME.md)。
+`SKILL_HUB_MCP_MODE`可选`full`（默认、兼容下表11工具）或`runtime`（仅skill_search/skill_read/skill_files）；非法值报E_CONFIG，隐藏工具也不能直接调用。runtime默认Top-3/文本8000字符，搜索返回紧凑候选name/description/score/scope与索引警告/简化decision；读取返回和安全边界不变。`createSkillHubMcpServer({mode?, exposure?})`可供库调用；默认local，HTTP使用`mode: runtime, exposure: remote`并拒绝remote+full。`createSkillHubHttpServer`/`startSkillHubHttpServer`/`stopSkillHubHttpServer`提供HTTP生命周期（见ADR0013）。配置与开销计量见[MINIMAL_RUNTIME](../ops/MINIMAL_RUNTIME.md)。
 
 | Tool              | 参数                                                                                       | 返回                                |
 | ----------------- | ------------------------------------------------------------------------------------------ | ----------------------------------- |
@@ -454,3 +454,7 @@ Server instructions 提供精确名直接 fetch、未知先 search/list、附件
 - 库 API：`tagSkill` / `loadTaxonomy` / `parseTaxonomyYaml` / `skillTagSummary`；`skillList` 与 `skillFetch` 返回项含 `tags`，`skillSearch` 支持 `tag` 过滤。
 
 **实现状态**：Done（P7-01/02/03）
+
+## npm命令包（v0.2.0候选）
+
+`pnpm pack:npm [--name <package-name>]`构建并输出独立tarball及完整路径/integrity/体积/文件数，`published: false`；`pnpm check:npm`生成自己的候选并真实安装验收。四个bin为`skill-hub`、`skill-hub-mcp`、`skill-hub-mcp-http`、`skill-hub-web`。对外不承诺JS库exports；不引入安装脚本或改变已有工具语义。详见[npm发行](../ops/NPM_DISTRIBUTION.md)。

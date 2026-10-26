@@ -11,7 +11,7 @@ import {
 
 describe("@skill-hub/shared public surface", () => {
   it("exports version", () => {
-    expect(SKILL_HUB_VERSION).toBe("0.1.0");
+    expect(SKILL_HUB_VERSION).toBe("0.2.0");
   });
 
   it("keeps placeholder for smoke compatibility", () => {

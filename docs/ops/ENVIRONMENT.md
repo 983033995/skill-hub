@@ -17,7 +17,7 @@ pnpm docs:check
 pnpm smoke
 ```
 
-Build output goes to each workspace's ignored `dist/` folder. There is no npm publication; run `pnpm hub`, `pnpm web`, or the built Node entries from a checkout.
+Build output goes to each workspace's ignored `dist/` folder. Registry publication is pending; `pnpm pack:npm` builds an isolated installable tarball and `pnpm check:npm` verifies it. See [npm distribution](NPM_DISTRIBUTION.md). Source users can run `pnpm hub`, `pnpm web`, or the built Node entries.
 
 `pnpm eval:check` validates the checked-in v1 generic dataset's exact 50-task composition (30 required, 15 none, 5 ambiguous) and common secret/path patterns; other task counts or class mixes require a new contract version. It does not certify semantic anonymity, label correctness, or routing quality. This is a versioned data-shape gate, not a draft-label quality threshold. The offline `pnpm eval:router -- <catalog.json> [report.json]` command requires an explicit catalog path so it never silently reads `~/.skill-hub`; reports contain task text and Skill names, so keep reports local when using a private catalog. Neither command calls Jev or another model API.
 
@@ -88,3 +88,7 @@ The Web “Agent 目录” table combines configured targets and user-level sour
 Public GitHub install/update may clone to a temporary directory. Explicit Jev requests transmit queries and metadata to TypeSafe; generic provider probes contact the configured endpoint. The Web Markdown renderer uses a CDN. Default local BM25, catalog reading and static audit require no model/network access.
 
 Do not store API keys in committed YAML/JSON. See [MODELS](../architecture/MODELS.md) and [MCP integration](MCP_INTEGRATION.md). GUI hosts may use a different PATH from your shell: use their Node executable and the absolute built MCP entry path.
+
+## Streamable HTTP MCP
+
+`pnpm mcp:http` starts the separate authenticated MCP endpoint. Required secret: `SKILL_HUB_HTTP_TOKEN`; default listener `127.0.0.1:8788`, fixed three-tool runtime. Use `SKILL_HUB_HTTP_HOST`, `SKILL_HUB_HTTP_PORT` (otherwise platform `PORT`), `SKILL_HUB_HTTP_ALLOWED_HOSTS` and optional `SKILL_HUB_HTTP_ALLOWED_ORIGINS` for hosting. Non-loopback binding requires an explicit Host allowlist. See [REMOTE_MCP](REMOTE_MCP.md) for all settings, storage, TLS and acceptance limits. Web REST and stdio startup are unchanged; public hosting and npm release are not performed automatically.

@@ -1,6 +1,6 @@
 {
   "name": "skill-hub",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "跨 Agent 的 Skill 统一真源管理 + 智能路由 + 省上下文",
@@ -12,6 +12,9 @@
     "opencode": "node scripts/opencode-hub.mjs",
     "hub": "node apps/cli/dist/index.js",
     "web": "node apps/web/dist/index.js",
+    "mcp:http": "node apps/mcp-server/dist/http.js",
+    "pack:npm": "node scripts/pack-npm.mjs",
+    "check:npm": "node scripts/accept-npm.mjs",
     "build": "tsc -b",
     "typecheck": "tsc -b --pretty false",
     "clean": "pnpm -r exec rm -rf dist",

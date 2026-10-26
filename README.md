@@ -15,7 +15,7 @@
 
 Skill Hub is a **local-first manager for Agent Skills**: directories containing a `SKILL.md` file and its scripts, references or assets. Maintain one library across your tools, route tasks to relevant Skills, and load the text you need through MCP.
 
-**Early v0.1.0 · MIT source distribution · No model key needed for local routing.** Build from source; there is no npm release. Linux and macOS are covered by CI; Windows deployment remains unverified.
+**v0.2.0 candidate · MIT · No model key needed for local routing.** Build from source or generate a locally tested npm tarball; registry publication is pending. [npm packaging →](docs/ops/NPM_DISTRIBUTION.md) Linux and macOS are covered by CI; Windows deployment remains unverified.
 
 ## Why Skill Hub
 
@@ -149,7 +149,7 @@ flowchart LR
 
 ## Current boundaries
 
-- **stdio MCP only.** Web REST is not a remote MCP endpoint; Streamable HTTP hosting is not implemented.
+- **stdio plus authenticated Streamable HTTP MCP.** HTTP exposes three read-only runtime tools for trusted clients with custom Bearer headers; OAuth and public deployment are not delivered. [Hosting guide →](docs/ops/REMOTE_MCP.md)
 - **A local read-only Web UI.** Loopback by default, unauthenticated. Managed writes stay in CLI. Markdown rendering uses a CDN with a plain-text fallback.
 - **A Skill manager, not an agent executor or knowledge-base manager.** It does not replace plugin permissions or run Skill scripts. Static audit is heuristic.
 - **No universal savings claim.** Native discovery, model billing and task quality require host-specific measurements. Draft evaluation labels are not a calibrated quality gate.

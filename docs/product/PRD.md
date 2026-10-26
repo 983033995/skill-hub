@@ -367,3 +367,15 @@ P21-04 来源迁移：单个受管 Skill 显式指定新来源，默认预览旧
 context-cost分别报告name/description元数据、当前SKILL.md全文和可配置首段的长度与启发式估算，默认不含附件，不假设全库注入。字符/字节与模型Token分列，公开版本化算法，不保证误差范围；真实模型Token、费用保持null。可显式给上下文窗口计算首段比例，不猜宿主配置、剩余预算或缓存收益。坏条目不记零；部分报告标不完整，估算操作不污染使用记录。P23-01先实现CLI/library；P23-02增加下述Web展示，模型tokenizer适配仍为后续独立需求。详见[使用观测与上下文预算](../ops/USAGE_AND_CONTEXT.md)。
 
 P23-02验收：Web主导航提供“使用与预算”，展示使用率、首段次数、续读/附件/候选、最近读取、元数据/全文/首段预算。使用率按所选日期/来源的当前全库首段读取次数作固定分母，分类/关键词/观测状态过滤不改变分母；支持使用率升降序、最近读取、正文Token升降序与名称排序，先全局过滤排序再分页，未知末尾。未记录历史不伪造0%，无分母不算百分比，小样本有提示；默认MCP，Web人工浏览可显式选择。合成API回归与ego-browser桌面/375px交互验收，不开启真实使用记录、不执行Skill内容。
+
+## FR-P26 — Streamable HTTP 托管
+
+- 在保留stdio行为的前提下，提供独立、默认loopback的HTTP MCP入口，供可信客户端以URL和Bearer token访问服务端Skill库。
+- HTTP固定search/read/files；所有请求鉴权，校验Host与可选Origin，不信任转发头；限制正文1MiB、并发16、响应30秒。剥除服务端路径诊断，保留授权正文。
+- 采用无会话POST/SSE，GET/DELETE返回405；完成/断开清理资源，关闭进程时有界排空。健康探测只代表存活。
+- 以真实SDK客户端和合成库验证握手、中文检索、分页/hash/附件、错误与越界、鉴权和HTTP限制，并回归编译stdio。
+- 本轮不含OAuth、多租户、npm发行、个人Skill上传或公网部署。选定目标账号/主机、数据范围与宿主后单独验收。见[托管指南](../ops/REMOTE_MCP.md)。
+
+### FR-P26-02 — npm命令分发
+
+提供单个候选包及CLI/stdio/HTTP/Web四个命令，安装时无需内部workspace包已发布；源码保留private、无install hook。以真实tarball安装、npm exec、配置模板/profile及MCP协议验收，CI加入独立包门禁。包内容/安装成功与注册库发布分开记录；发布需有效身份、包名权限、精确tarball与registry integrity回执。npm不承担HTTP运行托管。

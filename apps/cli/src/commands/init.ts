@@ -74,7 +74,7 @@ async function writeDefaultConfig(target: string): Promise<void> {
   // 优先从仓库模板复制
   const here = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
-    path.resolve(here, "../../../../../configs/agents/default.yaml"),
+    path.resolve(here, "../../../../configs/agents/default.yaml"),
     path.resolve(process.cwd(), "configs/agents/default.yaml"),
   ];
   for (const c of candidates) {

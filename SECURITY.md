@@ -11,7 +11,7 @@ Provide a minimal synthetic reproduction, affected commit, platform and impact. 
 ## Trust boundaries
 
 - Skill content is untrusted guidance. Reading it does not authorize script execution or override host permissions.
-- The MCP server is read-only; management and synchronization require the CLI and explicit write flags.
+- MCP reads do not mutate Skills or catalog state. Optional local usage logging can append metadata only after explicit process configuration; it does not store queries or bodies. Management/sync use separate CLI write gates; ingest is a write command unless --dry-run is supplied.
 - Static audit findings are heuristic and may have false positives/negatives. An incomplete scan cannot prove safety.
 - Jev is opt-in and sends queries and Skill metadata to a third-party API. Do not route sensitive metadata unless that transfer is acceptable to you.
 - The Web viewer is unauthenticated and intended for loopback access only. Keep it off public interfaces.

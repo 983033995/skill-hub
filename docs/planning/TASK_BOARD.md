@@ -3,8 +3,8 @@
 | 字段 | 值 |
 |------|-----|
 | 状态 | Active |
-| 最后更新 | 2026-10-09 |
-| 当前焦点 | **Phase 15 公开发布文档/社区规范/CI与隔离验收** |
+| 最后更新 | 2026-10-26 |
+| 当前焦点 | **P25 全盘复核与公开文档交付；P11-05 仍待 Owner 标签/付费上传授权** |
 | 用法 | 领取任务时改 Status/Owner；完成时改 `done` 并写 PROGRESS |
 
 **状态**：`todo` | `in_progress` | `blocked` | `done` | `cancelled`
@@ -13,12 +13,10 @@
 
 ## 当前焦点
 
-**Phase 0 / Phase 1：完成**  
-**Phase 2：backup / apply / verify / restore 已实现 + 沙箱演练**  
-**生产 backup：双副本 `20260810-204134` + 恢复手册**  
-**真实验收：`outputs/acceptance-report-20260810.md`（V0/V1 ✅）**  
-**B 档 create-only + agnes update + 全套 replace-real：`outputs/acceptance-wb-full-replace-real.md`（workbuddy ✅）**  
-**其它端 apply / restore --apply：仍须 Owner 明确授权**
+- 已实现：受管安装/更新/回滚/同内容来源迁移、按需 MCP、Web 使用率与预算、主流 Agent 来源盘点。
+- 当前复核：见 [2026-10-26 完成情况审计](COMPLETION_REVIEW_20261026.md)；历史条目的测试数量与部署记录只描述当时状态。
+- 待完成：Owner 复核路由标签及显式 live Jev 授权；WorkBuddy/Qoder 模型/GUI 回归；远端 MCP 与自动升级等尚未实现。
+- 生产 Skill、客户端配置和运行服务变更仍须按当前任务的显式授权范围执行。
 
 ---
 
@@ -163,9 +161,9 @@
 |----|------|--------|-------|------|
 | P11-01 | 一手竞品/规范/决策项目调研与功能排序 | done | agent | GitHub README/API/规范入口归档；星数不作为质量证明 |
 | P11-02 | Skill 静态安全审计 core/CLI/MCP/Web | done | agent | 只读、不联网、不执行；CLI 策略码；三面一致性回归 |
-| P11-03 | 最小 `available_skills` manifest 导出 | todo | agent | OpenSkills 风格 name/description + Hub 读取提示；原子写与 dry-run |
-| P11-04 | pin/rollback/overlay/fork 工作流 | todo | agent | 来源 commit、tree hash、覆盖关系、失败恢复与迁移说明 |
-| P11-05 | Jev 评估集与 CI 发布门禁 | todo | agent | ≥30 条匿名任务、BM25 对照、延迟/费用/升级率、全量 workflow |
+| P11-03 | 最小 `available_skills` manifest 导出 | done | codex | name/description + Hub 提示；完整分页；默认 dry-run；`--apply --yes` 原子写普通文件；拒绝 symlink/目录；162 测试及 smoke 通过 |
+| P11-04 | pin/rollback/overlay/fork 工作流 | done | codex | SHA pin 与来源锁迁移说明；rollback dry-run/锁快照/hash校验/反向恢复；复制改名 fork + `--overlay-of` 持久化、更新/回滚保留；overlay 不自动合并；dangling base 需人工维护；170 测试与隔离 smoke 通过 |
+| P11-05 | Jev 评估集与 CI 发布门禁 | blocked | codex | 技术预备项完成：v1 固定 50 条（30/15/5）合同、离线 BM25、无网络本地 preview、Owner 复核工作表；解除阻塞需 Owner 复核标签、提供显式 catalog 路径，并授权最多 50 次付费 TypeSafe 请求及上传 query/candidate metadata；标签正确性和真实 Jev 指标仍未验收 |
 
 ## Phase 12 — OpenCode Hub-only 真实回归（2026-10-06）
 
@@ -239,11 +237,11 @@
 | P20-03 | 确认旧artifact回退，建立Native及Codex隔离证据 | done | agent | 旧artifact memory回退测试；Native六模型任务通过；Codex临时HOME58enabled→0但不声明零注入 |
 | P20-04 | 完整验证、文档与按逻辑拆分提交 | done | agent | router、runtime/benchmark、文档三组本地提交；159测试/完整门禁；个人Skill/凭据/outputs不进Git |
 
-## Phase 21 — GitHub提交流程完善（2026-10-24）
+## GitHub 贡献治理（2026-10-24）
 
 | ID | 任务 | Status | Owner | 验收 |
 |----|------|--------|-------|------|
-| P21-01 | main强制PR、双语Issue表单与贡献文档 | done | codex | ruleset要求PR/三组CI/讨论解决；Issue使用Bug/Feature表单或私密安全渠道；Actions本地门禁通过 |
+| GOV-01 | main强制PR、双语Issue表单与贡献文档 | done | codex | ruleset要求PR/三组CI/讨论解决；Issue使用Bug/Feature表单或私密安全渠道；Actions本地门禁通过 |
 
 ## 看板维护规则
 
@@ -251,3 +249,48 @@
 2. 完成必须写 `PROGRESS.md` 一条  
 3. 取消任务写明原因  
 4. 新增任务用 `P{阶段}-{序号}`  
+
+## 单技能维护接入（2026-10-21）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| OPS-QWEN-01 | qwen-image-edit 统一到 skills 项目并补生成/4K/8K能力 | done | codex | 单源链接；Hub fetch/首位路由；32测试、结构/审计；真实生成/编辑/4096×2304/8192×4608 |
+
+| OPS-H3-01 | HomeHub已验H3流程沉淀、OpenMontage/CreatorOps路由与单技能投影 | done | codex | 单真源/4链接；结构、附件、持久fresh路由、真实MCP读取与独立情境审阅；Windows8文件SHA回执；无生成/服务切换 |
+
+## Phase 21 — 本地 Skill 管理体验与 DSH 调研（2026-10-25）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P21-01 | DSH本地Skill管理与下一步优化调研 | done | codex | 用户已确认MichengAI/dsh-skills-manager；固定公开仓库SHA、源码/官方文档/远端CI状态核对、DeepSeek审查；研究报告与建议顺序；未实施代码/安装/用户目录写入 |
+| P21-02 | 统一只读来源更新检查与列表容错 | done | codex | check-updates独立local/upstream/applyBlocked；逐项错误+complete/退出3；单次同repo/ref共享临时快照；list保留健康项、扫描失败不冒充删除；dry-run文案修正；45文件/199测试与smoke通过；既有授权真实只读检查/状态内容哈希未变；apply保护不变 |
+| P21-03 | 文件级差异与版本绑定确认计划 | done | codex | update预览返回文件/目录/执行位差异和planToken；写入必须绑定token+apply/yes，漂移拒绝；ADR0011记录v0.x兼容变化；47文件/209测试、强制构建及smoke通过；真实Skill未升级 |
+| P21-04 | 显式受管来源迁移与来源失效诊断 | done | codex | migrate-source单项同内容迁移；旧/新锁预览、独立planToken、canonical目录保留、旧锁备份/rollback、上游错误路径与hint；拒绝本地修改/来源漂移/自引用；49文件220测试（maxWorkers=2）、强制构建/lint/docs/eval/smoke通过；仅合成沙箱，真实来源未迁移 |
+
+## Phase 22 — Web 视觉与交互重构（2026-10-26）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P22-01 | 重设计只读 Web 的技能库、详情与多端盘点视图 | done | agent | 保留现有 API 与只读行为；统一视觉系统、响应式与键盘可用性；桌面/375px 浏览器验收、49 文件/220 项测试及完整相关门禁通过 |
+
+## Phase 23 — 使用观测与上下文预算（2026-10-26）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P23-01 | 本地使用统计与静态上下文估算 | done | codex | 显式可选search/read日志；CLI/MCP/Web/library归因、首段/续读/附件分列；不存query/正文；usage与context-cost报告、完整性/未知状态、字符/字节/启发式Token与实际账单区分；ADR0012及手册；新增11项回归，当前工作树53文件237测试及相关门禁通过；未改真实客户端配置/开启生产记录 |
+| P23-02 | Web使用率与上下文预算、筛选排序 | done | codex | /#/usage与只读usage-overview API；使用率固定日期/来源全库首段分母，过滤/全局排序后分页、未知末尾；时间/来源/分类/关键词/状态过滤；预算字符/字节/Token及首段/续读分列；5项API回归、ego-browser桌面1360/375px交互通过、54文件242测试与相关门禁；独立只读真实库预览可看，未改旧4173/启用记录 |
+
+## Phase 24 — 主流 Agent Skill 来源（2026-10-26）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P24-01 | 补充 DeepSeek Harness 与主流 Agent 来源 | done | codex | 官方路径核对；CLI/MCP/Web 共用10个内置来源路径，既有配置可见；显式覆盖/停用、路径去重、scope/ID过滤、显式选源导入；6项新增回归，全量53文件237测试及相关门禁通过；不扩展同步目标、不改用户配置、不重启服务 |
+| P24-02 | 修正 Web Agent 目录展示并核对运行实例 | done | codex | 展示修正；6项相关回归/build/lint通过；用户明确授权后仅重启4173本项目Web，原地址HTTP/ego-browser确认15目录与用途，DeepSeek默认根如实显示缺失，无横向溢出 |
+| P24-03 | 澄清目录状态与 Agent 安装状态 | done | codex | 只读确认DSH应用运行、数据根存在而原生skills子目录不存在，桌面已登记Hub MCP；Web改为目录状态/目录未找到及明确提示，原4173 ego-browser验收；lint/Prettier/docs/diff-check通过，不创建目录/改用户配置/重启服务 |
+
+
+## Phase 25 — 项目复核与公开文档交付（2026-10-26）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| P25-01 | 全盘完成情况审计与README/文档重整 | done | codex | 最新main隔离整合，Vitest4下54文件242测试；中英文README/合成截图/可复现沙箱；数据模型、运维、交接及完成矩阵刷新；个人笔记仅公开摘要；本地门禁通过，发布回执以实际PR/Actions为准 |

@@ -1,159 +1,63 @@
-# 数据模型 — skill-hub
+# 数据模型 — Skill Hub
 
-| 字段 | 值 |
-|------|-----|
-| 状态 | Active |
-| 版本 | v0.1 |
-| 最后更新 | 2026-08-16 |
+状态：Active · v0.1.0 · 更新：2026-10-26
 
----
+以packages中的TypeScript定义和[API](API.md)为准。元数据hash、目录版本、确认计划、使用记录是不同概念，不可互换。
 
-## 1. 核心实体
+## 1. Skill元数据与catalog
 
-### 1.1 SkillMeta
+SkillMeta含name、description、path、hash、mtimeMs，可选keywords、agentsPresent、source和provenance。path是当前登记真源路径：受管Skill通常在canonical，显式登记的project/workspace条目也可在外部路径。hash是SKILL.md文本的SHA-256，不是完整树或Git commit。
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| name | string | 唯一逻辑名（小写连字符） |
-| description | string | 路由关键字段 |
-| path | string | canonical 绝对路径 |
-| hash | string | 内容哈希（SKILL.md + 可选锁定文件集） |
-| mtimeMs | number | 源文件 mtime |
-| keywords | string[]? | 可选关键词 |
-| agentsPresent | string[]? | inventory 时出现在哪些端 |
-| source | string? | 导入来源路径 |
-| provenance | object? | scope/source type/source ref/revision/status/overlay 线索；旧 catalog 可缺省 |
+provenance可记录scope（user/workspace/project）、sourceType、sourceRef、revision、status和overlayOf。旧数据缺省scope按user处理。overlayOf仅表示逻辑关系，不执行基底合并或继承。
 
-`provenance`：
+catalog.json为version=1、updatedAt、skills[name]。目录冲突按name分组；provenance/scope/status及确定性排序可给出解释性代表项，不构成覆盖授权。
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| scope | `user\|workspace\|project`? | 生效范围；旧数据缺省按 `user` |
-| sourceType | `local\|git\|registry\|generated`? | 来源类型，当前主要使用 `local` |
-| sourceRef | string? | 来源路径、仓库引用或其他稳定标识 |
-| revision | string? | 提交/版本线索 |
-| status | `active\|draft\|deprecated`? | 生命周期状态 |
-| overlayOf | string? | 覆盖/派生的基准 Skill |
+## 2. 受管来源与目录版本
 
-### 1.2 Conflict
+managed-lock.json：version=1，skills[name]保存以下来源锁：
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| name | string | 冲突 skill 名 |
-| variants | { path, hash, agentId?, provenance? }[] | 多份不同内容 |
-| winner | variant? | 解释性代表项 |
-| winnerReason | string? | scope 优先级与确定性排序规则 |
+| 字段         | 语义                                             |
+| ------------ | ------------------------------------------------ |
+| type         | local或github                                    |
+| path         | local来源的绝对根路径                            |
+| url          | 规范化公开GitHub HTTPS仓库URL                    |
+| ref / commit | 用户选择的Git引用与实际解析的完整commit          |
+| subpath      | 相对来源根的Skill目录，单Skill根为.              |
+| treeHash     | Skill完整目录内容、路径、执行位和空目录的SHA-256 |
+| overlayOf    | 可选逻辑基底名称                                 |
 
-冲突代表项默认按 `project > workspace > user` 选择；同 scope 按 `status`、`sourceRef/path`、`hash` 确定性排序。这个 winner 只用于盘点/解释，不会静默覆盖 Canonical。
+完整树忽略.git和时间戳；链接按受限解引用后的内容处理，越界/环路拒绝。文件清单差异的path/change/before/after只保留类型、摘要、执行位，不含正文。
 
-### 1.3 Catalog
+update/migrate-source的planToken是版本化内容指纹，绑定目标集合、真实Hub位置、旧/新来源锁和当前树。迁移使用独立合同；token不是身份、权限或离线包。目录和来源锁的事务边界见[ADR0011](../adr/0011-managed-update-plan-binding.md)。
 
-`catalog.json`：
+managed备份位于唯一批次中；managed-rollback.json在Skill树外保存该批次旧锁，配合备份treeHash供单Skillrollback使用。早期没有侧车快照的备份不能等同于可回滚版本。
 
-```json
-{
-  "version": 1,
-  "updatedAt": "2026-08-10T00:00:00+08:00",
-  "skills": {
-    "pdf": {
-      "name": "pdf", "description": "...", "path": "...", "hash": "sha256:...",
-      "provenance": { "scope": "user", "sourceType": "local", "sourceRef": "..." }
-    }
-  }
-}
-```
+## 3. 路由产物
 
-### 1.4 IndexMeta
+index/index-meta.json记录engine、builtAt、skillCount、catalogHash及artifact信息；bm25.json保存元数据和检索统计，不存正文。当前Bm25IndexArtifact version=2，过期算法/损坏artifact/catalog或内容漂移会影响freshness，读取层返回原因及重建建议。catalogHash不包含updatedAt。它不是使用次数、Skill安装锁或质量证明。
 
-```json
-{
-  "version": 1,
-  "engine": "bm25",
-  "builtAt": "...",
-  "skillCount": 108,
-  "catalogHash": "...",
-  "artifact": "bm25.json",
-  "artifactFormat": "skill-hub.bm25.v1"
-}
-```
+TypeSafe的RouterDecision是只读选择、概率、confidence和升级建议。最近请求metrics是实例级快照，不是并发逐调用关联结果；缺失usage保持null。
 
-`catalogHash` 只对规范化后的 `catalog.skills` 计算，不包含 `updatedAt`。`bm25.json` 保存 name/description/keywords 等元数据和 BM25 统计量，不保存 `SKILL.md` 正文；catalog hash 不匹配或 artifact 损坏时，route 回退内存构建并建议 `index --rebuild`。
+## 4. 生命周期与使用事件
 
-### 1.5 SkillHistoryEntry
+| 数据           | 内容                                                                              | 默认写入                       |
+| -------------- | --------------------------------------------------------------------------------- | ------------------------------ |
+| history.jsonl  | ingest/sync/index/overlay/fork等生命周期元数据                                    | 对应真实管理步骤；不是读取次数 |
+| usage JSONL v1 | 时间、cli/mcp/web/library、search/read成功/错误码、Skill名、阶段、大小/启发式估算 | 仅显式SKILL_HUB_USAGE_LOG进程  |
 
-运行时追加到 `~/.skill-hub/history.jsonl` 的单行 JSON：
+usage不保存query、描述、正文、附件路径或错误详情。首段、续读和附件分列；无历史不等于零使用。聚合中的usageRate是在所选时间/来源内，该Skill首段次数除以当前catalog全库首段总数，再做UI过滤/分页。无观测或无分母保持null。字符/字节与启发式Token不同于真实计费；实际模型Token/费用保持null。完整schema与限制见[使用手册](../ops/USAGE_AND_CONTEXT.md)。
 
-```json
-{
-  "at": "2026-08-16T07:30:00.000Z",
-  "type": "ingest",
-  "name": "pdf-merge",
-  "action": "update",
-  "previousHash": "sha256:old",
-  "hash": "sha256:new",
-  "revision": "abc123",
-  "provenance": { "scope": "project", "overlayOf": "base-skill" }
-}
-```
+## 5. 兼容分发与备份
 
-history 只记录生命周期元数据，不记录 Skill 正文；支持 `ingest`、`sync`、`index`、`overlay`、`fork` 类型。
+SyncPlan含mode、canonicalDir、items、summary。每项含agentId、skillName、action、target、source、expectedSkillHash；支持create/update/replace的symlink/copy动作及conflict/noop/skipped。apply需复验来源与路径边界，copy验证同时比较SKILL.md与完整目录，附件漂移也会失配。
 
-### 1.6 BackupManifest
+BackupManifest version=1保存createdAt、backupDir、agents及可选canonical/hub信息；每个目标有path/backupPath/exists/entryCount，可附错误与跳过状态。它不是managed来源锁侧车。restore按真实manifest替换目标，不与catalog/index构成跨包原子事务。
 
-```json
-{
-  "createdAt": "...",
-  "agents": [{ "id": "workbuddy", "path": "...", "fileCount": 120 }],
-  "canonical": { "path": "...", "fileCount": 100 },
-  "notes": "pre-sync"
-}
-```
+## 6. 名称与一致性
 
-### 1.7 SyncPlanItem
+名称执行trim/lowercase、空白与下划线转连字符、非法字符过滤、连字符折叠；空名或路径式名称拒绝。具体符号允许集合以shared/paths和调用方边界校验为准。
 
-见 `API.md`。
-
-### 1.8 SyncAction
-
-除 symlink 模式的 `create_symlink` / `update_symlink` / `replace_real` 外，copy 模式使用：
-
-- `create_copy`：目标不存在，复制 canonical skill 目录；
-- `update_copy`：目标是 symlink，替换为实体副本；
-- `replace_real_copy`：明确启用 `replace-real` 后，先 stash 原实体路径，再复制 canonical 内容。
-
-`SyncPlan.mode` 记录本次计划实际使用的 `symlink | copy` 模式。copy 的一致性检查当前以 `SKILL.md` hash 为准；references/scripts 的完整目录 hash 属于后续模型增强项。
-
----
-
-## 2. 哈希策略（v0.1）
-
-- 默认：对 `SKILL.md` 内容做 SHA-256  
-- P1：可选纳入 `scripts/**` 与 `references/**` 的稳健子集  
-- 变更 hash → catalog 脏 → 提示 reindex  
-
----
-
-## 3. 名称规范化
-
-1. trim + lower case  
-2. 空格 → `-`  
-3. 非法字符剔除  
-4. 空名 → `E_PARSE`  
-
----
-
-## 4. 一致性规则
-
-| 规则 | 说明 |
-|------|------|
-| catalog ⊆ filesystem | 孤儿 catalog 项在 `verify` 报告 |
-| filesystem 新目录 | `ingest`/`index --rebuild` 吸收 |
-| symlink target | 必须在 `canonical_dir` 内 |
-
----
-
-## 5. 变更记录
-
-| 版本 | 日期 | 说明 |
-|------|------|------|
-| v0.1 | 2026-08-10 | 初版模型 |
+- catalog可以含外部project/workspace真源，不能假设所有path都在canonical。
+- managed写入要求当前完整树等于锁基线；变更来源/内容需对应显式流程。
+- 原生投影仅是兼容副本或链接，不应变成第二个可写真源。
+- 索引、备份、manifest、使用记录存在，不证明宿主已执行Skill或模型任务成功。

@@ -19,6 +19,7 @@ pnpm typecheck
 pnpm build
 pnpm lint
 pnpm test
+pnpm eval:check
 pnpm docs:check
 pnpm smoke
 ```

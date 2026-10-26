@@ -1,0 +1,11 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="80"
+  height="80"
+  viewBox="0 0 80 80"
+  role="img"
+  aria-label="Skill Hub"
+>
+  <rect width="80" height="80" rx="22" fill="#d7f75b" />
+  <path fill="#191a16" d="M22 22h13v13H22zm23 0h13v13H45zM22 45h13v13H22zm23 0h13v13H45z" />
+</svg>

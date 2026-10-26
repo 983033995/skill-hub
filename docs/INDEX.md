@@ -3,7 +3,7 @@
 > 与 `HARNESS.md` 保持一致。新增文档必须登记到本表。
 
 **项目**：skill-hub  
-**基线版本**：v0.1.0 · 公开源码文档更新2026-10-09
+**基线版本**：v0.1.0 · 公开源码文档更新2026-10-26
 
 ---
 
@@ -48,6 +48,7 @@
 | 文档 | 说明 | 维护触发 |
 |------|------|----------|
 | [ops/OPEN_SOURCE_RELEASE.md](./ops/OPEN_SOURCE_RELEASE.md) | 公开仓库社区/安全/CI设置和发布边界 | GitHub配置变更 |
+| [ops/USAGE_AND_CONTEXT.md](./ops/USAGE_AND_CONTEXT.md) | 本地使用记录、Web使用率/预算与估算边界 | 观测/预算变化 |
 | [ops/JEV_SETUP.md](./ops/JEV_SETUP.md) | Jev token、CLI/MCP/宿主配置与回退排查 | Jev配置变化 |
 | [ops/ENVIRONMENT.md](./ops/ENVIRONMENT.md) | 环境依赖与配置 | 依赖升级 |
 | [ops/OPERATIONS_AND_RISKS.md](./ops/OPERATIONS_AND_RISKS.md) | 运维流程、风险、回滚 | 运维策略变更 |
@@ -66,6 +67,7 @@
 |------|------|----------|
 | [planning/PR_REVIEW_20261009.md](./planning/PR_REVIEW_20261009.md) | 开放依赖PR的兼容性、CI及合并前提 | PR状态变化 |
 | [planning/STATUS.md](./planning/STATUS.md) | 当前实现、验证与限制（优先阅读） | 状态变化 |
+| [planning/COMPLETION_REVIEW_20261026.md](./planning/COMPLETION_REVIEW_20261026.md) | 全盘源码/测试/文档复核、完成矩阵与明确缺口 | 发布复核 |
 | [planning/ROADMAP.md](./planning/ROADMAP.md) | 阶段与里程碑 | 里程碑调整 |
 | [planning/TASK_BOARD.md](./planning/TASK_BOARD.md) | 任务状态板 | 每个工作日/每个 PR |
 | [planning/PROGRESS.md](./planning/PROGRESS.md) | 进度追加日志 | 每次实质交付 |
@@ -85,6 +87,7 @@
 | [research/JEV_DECISION_LAYER.md](./research/JEV_DECISION_LAYER.md) | Jev 决策层观察、取舍与验证边界 | Jev 能力或外部证据更新 |
 | [research/MUSIC_SKILL_SEARCH_20261012.md](./research/MUSIC_SKILL_SEARCH_20261012.md) | MiniMax网页端音乐Skill的元数据、排名及正文漂移诊断 | 检索/Skill元数据变化 |
 | [research/RUNTIME_REVIEW_20261012.md](./research/RUNTIME_REVIEW_20261012.md) | runtime复核修正、50任务召回草案、Native试验与Codex隔离发现 | 评测与宿主证据变化 |
+| [research/DSH_SKILL_MANAGEMENT_20261025.md](./research/DSH_SKILL_MANAGEMENT_20261025.md) | MichengAI DSH源码对照与历史建议；后续交付见当前复核 | 上游版本/优化决策变化 |
 
 ## 6. 决策与模板
 
@@ -96,6 +99,8 @@
 | [adr/0007-hub-runtime-loading.md](./adr/0007-hub-runtime-loading.md) | Hub MCP 按需加载与 OpenCode 独立接入 |
 | [adr/0009-open-source-publication.md](./adr/0009-open-source-publication.md) | MIT公开源码、隔离CI与非npm发布边界 |
 | [adr/0010-minimal-runtime-mcp.md](./adr/0010-minimal-runtime-mcp.md) | 可选runtime与full兼容、宿主和开销证据分层 |
+| [adr/0011-managed-update-plan-binding.md](./adr/0011-managed-update-plan-binding.md) | managed update文件差异、版本绑定token与写入确认兼容变化 |
+| [adr/0012-local-usage-context-estimates.md](./adr/0012-local-usage-context-estimates.md) | 本地可选使用观测与启发式上下文估算的语义/隐私边界 |
 | [adr/0008-typesafe-jev-semantic-router.md](./adr/0008-typesafe-jev-semantic-router.md) | Jev 可选语义路由与 BM25 降级 |
 | [adr/0006-managed-skill-lifecycle.md](./adr/0006-managed-skill-lifecycle.md) | 来源锁与完整目录版本管理 |
 | [adr/0000-template.md](./adr/0000-template.md) | 已归档的模板指针 |

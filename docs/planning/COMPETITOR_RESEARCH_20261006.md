@@ -1,5 +1,7 @@
 # Skill 管理与 Agent 决策项目的一手调研
 
+> 历史时间点记录，功能/排期/远端PR状态可能已变化；当前完成情况见[复核报告](COMPLETION_REVIEW_20261026.md)与[STATUS](STATUS.md)。
+
 | 字段 | 值 |
 |------|-----|
 | 状态 | Active |

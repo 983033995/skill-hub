@@ -6,7 +6,7 @@ import { runManage } from "../../apps/cli/src/commands/manage.js";
 import { runSync } from "../../apps/cli/src/commands/sync.js";
 import { runIndex } from "../../apps/cli/src/commands/index-cmd.js";
 import { parseArgs } from "../../apps/cli/src/args.js";
-import { readCatalog, loadHubConfig, catalogToSkillMetas } from "@skill-hub/core";
+import { readCatalog, loadHubConfig, catalogToSkillMetas, manageSkills } from "@skill-hub/core";
 import { createBackup, verifySync } from "@skill-hub/sync";
 import { createBm25Router } from "@skill-hub/router";
 
@@ -69,8 +69,20 @@ it("CLI install → catalog/index → backup → sync → update preserves sourc
   expect(await runSync(syncOptions)).toBe(0);
   expect((await verifySync(config, catalogToSkillMetas(catalog))).ok).toBe(true);
   await writeFile(path.join(source, "script"), "new");
+  const updatePlan = await manageSkills({
+    action: "update",
+    canonicalDir: canonical,
+    stateDir: home,
+  });
   expect(
-    await runManage({ ...options, action: "update", source: undefined, apply: true, yes: true }),
+    await runManage({
+      ...options,
+      action: "update",
+      source: undefined,
+      apply: true,
+      yes: true,
+      planToken: updatePlan.planToken,
+    }),
   ).toBe(0);
   expect(await readFile(path.join(agent, "alpha/script"), "utf8")).toBe("new");
   await runIndex({ json: true, rebuild: true, configPath });

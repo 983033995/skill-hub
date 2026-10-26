@@ -14,6 +14,11 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { MANAGED_LOCK_FILENAME, manageSkills } from "./managed.js";
 
+async function applyPreviewedUpdate(options: Parameters<typeof manageSkills>[0]) {
+  const preview = await manageSkills({ ...options, dryRun: true });
+  return manageSkills({ ...options, dryRun: false, planToken: preview.planToken });
+}
+
 const temporaryRoots: string[] = [];
 
 afterEach(async () => {
@@ -128,7 +133,7 @@ describe("manageSkills", () => {
     );
     await writeFile(path.join(workspace.source, "alpha", "references", "guide.md"), "new guide");
 
-    const result = await manageSkills({
+    const result = await applyPreviewedUpdate({
       action: "update",
       canonicalDir: workspace.canonical,
       stateDir: workspace.state,
@@ -152,6 +157,323 @@ describe("manageSkills", () => {
     );
   });
 
+  it("rolls back one managed Skill from a verified backup and can roll forward again", async () => {
+    const workspace = await createWorkspace();
+    await writeSkill(workspace.source, "alpha", {
+      body: "version one",
+      script: "one",
+      attachment: "guide one",
+    });
+    await manageSkills(installOptions(workspace));
+
+    await writeFile(
+      path.join(workspace.source, "alpha", "SKILL.md"),
+      "---\nname: alpha\ndescription: alpha description\n---\nversion two\n",
+    );
+    await writeFile(path.join(workspace.source, "alpha", "scripts", "run.sh"), "two");
+    await writeFile(path.join(workspace.source, "alpha", "references", "guide.md"), "guide two");
+    const second = await applyPreviewedUpdate({
+      action: "update",
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+    const versionOneBackup = second.items[0]!.backupPath!;
+    const firstManifest = JSON.parse(
+      await readFile(path.join(path.dirname(versionOneBackup), "managed-rollback.json"), "utf8"),
+    ) as { version: number; batchId: string; skills: Record<string, { treeHash: string }> };
+    expect(firstManifest).toMatchObject({
+      version: 1,
+      batchId: path.basename(path.dirname(versionOneBackup)),
+    });
+    expect(firstManifest.skills.alpha?.treeHash).toBe(second.items[0]?.currentTreeHash);
+
+    await writeFile(
+      path.join(workspace.source, "alpha", "SKILL.md"),
+      "---\nname: alpha\ndescription: alpha description\n---\nversion three\n",
+    );
+    await writeFile(path.join(workspace.source, "alpha", "scripts", "run.sh"), "three");
+    await writeFile(path.join(workspace.source, "alpha", "references", "guide.md"), "guide three");
+    await applyPreviewedUpdate({
+      action: "update",
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+    await rm(workspace.source, { recursive: true, force: true });
+
+    const preview = await manageSkills({
+      action: "rollback",
+      names: ["alpha"],
+      backupPath: versionOneBackup,
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: true,
+    });
+    expect(preview.items).toMatchObject([{ action: "rollback", status: "planned" }]);
+    expect(
+      await readFile(path.join(workspace.canonical, "alpha", "scripts", "run.sh"), "utf8"),
+    ).toBe("three");
+
+    const rolledBack = await manageSkills({
+      action: "rollback",
+      names: ["alpha"],
+      backupPath: versionOneBackup,
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+    expect(rolledBack.items).toMatchObject([{ action: "rollback", status: "applied" }]);
+    expect(await readFile(path.join(workspace.canonical, "alpha", "SKILL.md"), "utf8")).toContain(
+      "version one",
+    );
+    expect(
+      await readFile(path.join(workspace.canonical, "alpha", "scripts", "run.sh"), "utf8"),
+    ).toBe("one");
+    expect(
+      await readFile(path.join(workspace.canonical, "alpha", "references", "guide.md"), "utf8"),
+    ).toBe("guide one");
+
+    const rolledForward = await manageSkills({
+      action: "rollback",
+      names: ["alpha"],
+      backupPath: rolledBack.items[0]!.backupPath!,
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+    expect(rolledForward.items).toMatchObject([{ action: "rollback", status: "applied" }]);
+    expect(await readFile(path.join(workspace.canonical, "alpha", "SKILL.md"), "utf8")).toContain(
+      "version three",
+    );
+    const lock = JSON.parse(
+      await readFile(path.join(workspace.state, MANAGED_LOCK_FILENAME), "utf8"),
+    ) as { skills: Record<string, { treeHash: string }> };
+    expect(lock.skills.alpha?.treeHash).toBe(rolledForward.items[0]?.sourceTreeHash);
+  });
+
+  it("rolls back only the selected Skill lock from a multi-Skill update batch", async () => {
+    const workspace = await createWorkspace();
+    await writeSkill(workspace.source, "alpha", { script: "alpha one" });
+    await writeSkill(workspace.source, "beta", { script: "beta one" });
+    await manageSkills(installOptions(workspace));
+
+    await writeFile(path.join(workspace.source, "alpha", "scripts", "run.sh"), "alpha two");
+    await writeFile(path.join(workspace.source, "beta", "scripts", "run.sh"), "beta two");
+    const second = await applyPreviewedUpdate({
+      action: "update",
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+    const alphaBackup = second.items.find((item) => item.name === "alpha")!.backupPath!;
+
+    await writeFile(path.join(workspace.source, "alpha", "scripts", "run.sh"), "alpha three");
+    await writeFile(path.join(workspace.source, "beta", "scripts", "run.sh"), "beta three");
+    await applyPreviewedUpdate({
+      action: "update",
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+    const before = JSON.parse(
+      await readFile(path.join(workspace.state, MANAGED_LOCK_FILENAME), "utf8"),
+    ) as { skills: Record<string, { treeHash: string }> };
+
+    await manageSkills({
+      action: "rollback",
+      names: ["alpha"],
+      backupPath: alphaBackup,
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+
+    const after = JSON.parse(
+      await readFile(path.join(workspace.state, MANAGED_LOCK_FILENAME), "utf8"),
+    ) as { skills: Record<string, { treeHash: string }> };
+    expect(
+      await readFile(path.join(workspace.canonical, "alpha", "scripts", "run.sh"), "utf8"),
+    ).toBe("alpha one");
+    expect(
+      await readFile(path.join(workspace.canonical, "beta", "scripts", "run.sh"), "utf8"),
+    ).toBe("beta three");
+    expect(after.skills.alpha?.treeHash).toBe(
+      second.items.find((item) => item.name === "alpha")?.currentTreeHash,
+    );
+    expect(after.skills.beta).toEqual(before.skills.beta);
+  });
+
+  it("stores overlayOf in managed locks and preserves it through update, list and rollback", async () => {
+    const workspace = await createWorkspace();
+    const baseSource = path.join(workspace.root, "base-source");
+    const forkSource = path.join(workspace.root, "fork-source");
+    await writeSkill(baseSource, "guide-base", { body: "base" });
+    await writeSkill(forkSource, "guide-custom", { body: "fork one" });
+    await manageSkills({
+      action: "install",
+      source: baseSource,
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+
+    const fork = await manageSkills({
+      action: "install",
+      source: forkSource,
+      overlayOf: "guide-base",
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+    expect(fork.skills[0]?.provenance?.overlayOf).toBe("guide-base");
+    let lock = JSON.parse(
+      await readFile(path.join(workspace.state, MANAGED_LOCK_FILENAME), "utf8"),
+    ) as { skills: Record<string, { overlayOf?: string }> };
+    expect(lock.skills["guide-base"]?.overlayOf).toBeUndefined();
+    expect(lock.skills["guide-custom"]?.overlayOf).toBe("guide-base");
+
+    await writeFile(
+      path.join(forkSource, "guide-custom", "SKILL.md"),
+      "---\nname: guide-custom\ndescription: guide-custom description\n---\nfork two\n",
+    );
+    const update = await applyPreviewedUpdate({
+      action: "update",
+      names: ["guide-custom"],
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+    expect(update.skills[0]?.provenance?.overlayOf).toBe("guide-base");
+
+    const listed = await manageSkills({
+      action: "list",
+      names: ["guide-custom"],
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+    });
+    expect(listed.skills[0]?.provenance?.overlayOf).toBe("guide-base");
+
+    const rollback = await manageSkills({
+      action: "rollback",
+      names: ["guide-custom"],
+      backupPath: update.items[0]!.backupPath!,
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+    expect(rollback.skills[0]?.provenance?.overlayOf).toBe("guide-base");
+    lock = JSON.parse(
+      await readFile(path.join(workspace.state, MANAGED_LOCK_FILENAME), "utf8"),
+    ) as { skills: Record<string, { overlayOf?: string }> };
+    expect(lock.skills["guide-custom"]?.overlayOf).toBe("guide-base");
+  });
+
+  it("requires a single differently named Skill for a managed overlay", async () => {
+    const workspace = await createWorkspace();
+    await writeSkill(workspace.source, "base-skill");
+    await writeSkill(workspace.source, "fork-skill");
+    await manageSkills(installOptions(workspace, true));
+
+    await expect(
+      manageSkills({
+        ...installOptions(workspace, true),
+        overlayOf: "base-skill",
+      }),
+    ).rejects.toMatchObject({ code: "E_CONFIG" });
+    await expect(
+      manageSkills({
+        ...installOptions(workspace, true),
+        names: ["base-skill"],
+        overlayOf: "base-skill",
+      }),
+    ).rejects.toMatchObject({ code: "E_CONFIG" });
+  });
+
+  it("rejects rollback paths outside managed backups and refuses a modified canonical tree", async () => {
+    const workspace = await createWorkspace();
+    await writeSkill(workspace.source, "alpha", { script: "old" });
+    await manageSkills(installOptions(workspace));
+    await writeFile(path.join(workspace.source, "alpha", "scripts", "run.sh"), "new");
+    const update = await applyPreviewedUpdate({
+      action: "update",
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+    const backupPath = update.items[0]!.backupPath!;
+    const rollback = (pathValue: string) =>
+      manageSkills({
+        action: "rollback",
+        names: ["alpha"],
+        backupPath: pathValue,
+        canonicalDir: workspace.canonical,
+        stateDir: workspace.state,
+        dryRun: false,
+      });
+
+    await expect(rollback(path.join(workspace.source, "alpha"))).rejects.toMatchObject({
+      code: "E_PATH",
+    });
+    await writeFile(path.join(workspace.canonical, "alpha", "scripts", "run.sh"), "local edit");
+    await expect(rollback(backupPath)).rejects.toMatchObject({ code: "E_CONFLICT" });
+    expect(
+      await readFile(path.join(workspace.canonical, "alpha", "scripts", "run.sh"), "utf8"),
+    ).toBe("local edit");
+  });
+
+  it("rejects a backup whose tree no longer matches its saved source lock", async () => {
+    const workspace = await createWorkspace();
+    await writeSkill(workspace.source, "alpha", { script: "old" });
+    await manageSkills(installOptions(workspace));
+    await writeFile(path.join(workspace.source, "alpha", "scripts", "run.sh"), "new");
+    const update = await applyPreviewedUpdate({
+      action: "update",
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+    const backupPath = update.items[0]!.backupPath!;
+    await writeFile(path.join(backupPath, "scripts", "run.sh"), "tampered backup");
+
+    await expect(
+      manageSkills({
+        action: "rollback",
+        names: ["alpha"],
+        backupPath,
+        canonicalDir: workspace.canonical,
+        stateDir: workspace.state,
+        dryRun: true,
+      }),
+    ).rejects.toMatchObject({ code: "E_BACKUP" });
+  });
+
+  it("refuses legacy update backups that have no managed source-lock snapshot", async () => {
+    const workspace = await createWorkspace();
+    await writeSkill(workspace.source, "alpha", { script: "old" });
+    await manageSkills(installOptions(workspace));
+    await writeFile(path.join(workspace.source, "alpha", "scripts", "run.sh"), "new");
+    const update = await applyPreviewedUpdate({
+      action: "update",
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+      dryRun: false,
+    });
+    const backupPath = update.items[0]!.backupPath!;
+    await rm(path.join(path.dirname(backupPath), "managed-rollback.json"));
+
+    await expect(
+      manageSkills({
+        action: "rollback",
+        names: ["alpha"],
+        backupPath,
+        canonicalDir: workspace.canonical,
+        stateDir: workspace.state,
+        dryRun: true,
+      }),
+    ).rejects.toMatchObject({ code: "E_NOT_FOUND" });
+  });
+
   it("refuses update when any canonical attachment was modified locally", async () => {
     const workspace = await createWorkspace();
     await writeSkill(workspace.source, "alpha", { script: "#!/bin/sh\necho upstream-one\n" });
@@ -172,7 +494,7 @@ describe("manageSkills", () => {
     );
 
     await expect(
-      manageSkills({
+      applyPreviewedUpdate({
         action: "update",
         canonicalDir: workspace.canonical,
         stateDir: workspace.state,
@@ -277,7 +599,7 @@ describe("manageSkills", () => {
     await rm(path.join(workspace.state, "backups"), { recursive: true, force: true });
     await writeFile(path.join(workspace.state, "backups"), "block backups");
     await expect(
-      manageSkills({
+      applyPreviewedUpdate({
         action: "update",
         canonicalDir: workspace.canonical,
         stateDir: workspace.state,

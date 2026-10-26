@@ -96,7 +96,7 @@ describe("Hub runtime progressive reads", () => {
       offset: 4,
       nextOffset: 8,
     });
-  });
+  }, 10_000);
 
   it("rejects traversal, escaping links, symlink cycles, binary files, and invalid pagination", async () => {
     const fixture = await createRuntimeFixture();

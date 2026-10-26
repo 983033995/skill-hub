@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "dataClass": "synthetic-generic",
   "labelStatus": "agent-authored draft; requires owner review",
   "notes": "Generic manually authored tasks mapped to known catalog capabilities; not private user history. Ambiguous single-character probes are excluded from primary Recall@5. none means a capable base model does not need specialized guidance, not that no Skill shares a word.",
   "cases": [

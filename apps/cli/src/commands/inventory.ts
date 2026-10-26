@@ -1,6 +1,7 @@
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import {
+  agentSkillSources,
   detectConflicts,
   effectiveSkillScope,
   loadHubConfig,
@@ -87,7 +88,7 @@ export async function runInventory(options: {
     }
   }
 
-  let sources = (config.sources ?? []).filter((s) => s.enabled);
+  let sources = agentSkillSources(config).filter((s) => s.enabled);
   if (options.sourceFilter?.length) {
     const wanted = new Set(options.sourceFilter);
     sources = sources.filter((s) => wanted.has(s.id));

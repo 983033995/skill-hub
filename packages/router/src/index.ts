@@ -11,6 +11,10 @@ export type {
   RouterEngine,
 } from "./types.js";
 export { tokenize } from "./tokenize.js";
+export { withUsageScope } from "./usage.js";
+export { skillContextCost } from "./context-cost.js";
+export { skillUsageOverview } from "./usage-overview.js";
+export type { UsageSort, UsageOrigin } from "./usage-overview.js";
 export { effectiveScope, filterByScope } from "./scope.js";
 export type { ScopeFilter } from "./scope.js";
 export { Bm25Router, createBm25Router } from "./bm25.js";
@@ -26,7 +30,7 @@ export {
 export type { ProfileDef } from "./profile.js";
 export { ExternalRouterEngine, createExternalRouter } from "./external.js";
 export { TypeSafeRouterEngine, createTypeSafeRouter } from "./typesafe.js";
-export type { TypeSafeRouterOptions } from "./typesafe.js";
+export type { TypeSafeRequestMetrics, TypeSafeRouterOptions } from "./typesafe.js";
 export { createRouterEngine, routeWithProfile } from "./factory.js";
 export type {
   CreateRouterOptions,

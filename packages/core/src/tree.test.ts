@@ -1,12 +1,32 @@
-import { mkdtemp, mkdir, writeFile, symlink, cp, chmod } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, symlink, cp, chmod, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { hashSkillTree } from "./tree.js";
+import { hashSkillTree, inspectSkillTree } from "./tree.js";
 import { parseSkillMd } from "./parse.js";
 import { normalizeSkillName } from "@skill-hub/shared";
 
 describe("Skill tree and real-world metadata", () => {
+  it("preserves the pre-preview tree hash format when collecting a metadata manifest", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "hub-tree-golden-"));
+    try {
+      await mkdir(path.join(root, "empty"));
+      await writeFile(path.join(root, "sample.txt"), "abc\n");
+      await chmod(path.join(root, "sample.txt"), 0o644);
+      const expected = "sha256:589fb854263dce8f80f1495a1d0ee1e266c5f461a8a8b65b406ea39f9a19b80e";
+      expect(await hashSkillTree(root)).toBe(expected);
+      const inspected = await inspectSkillTree(root);
+      expect(inspected.treeHash).toBe(expected);
+      expect(inspected.entries).toMatchObject([
+        { path: "", kind: "directory" },
+        { path: "empty", kind: "directory" },
+        { path: "sample.txt", kind: "file", executable: 0 },
+      ]);
+      expect(JSON.stringify(inspected)).not.toContain("abc");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   it("hashes dereferenced copies equally, including attachments and executable mode", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "hub-tree-"));
     const src = path.join(root, "src");

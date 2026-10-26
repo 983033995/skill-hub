@@ -16,7 +16,12 @@ export type {
 } from "./types.js";
 
 export { sha256Content } from "./hash.js";
-export { hashSkillTree } from "./tree.js";
+export { estimateContext } from "./context-cost.js";
+export type { ContextEstimate } from "./context-cost.js";
+export { appendUsage, readUsageReport, resolveUsageLog } from "./usage.js";
+export type { SkillUsageEvent, UsageOrigin } from "./usage.js";
+export { hashSkillTree, inspectSkillTree } from "./tree.js";
+export type { SkillTreeEntry } from "./tree.js";
 export { auditSkillTree } from "./audit.js";
 export type {
   AuditSeverity,
@@ -27,11 +32,18 @@ export type {
 } from "./audit.js";
 export { inspectTakeover } from "./takeover.js";
 export { manageSkills, MANAGED_LOCK_FILENAME } from "./managed.js";
-export type { ManagedAction, ManageSkillsOptions, ManageSkillsResult } from "./managed.js";
+export type {
+  ManagedAction,
+  ManagedReadIssue,
+  ManagedFileChange,
+  ManageSkillsOptions,
+  ManageSkillsResult,
+} from "./managed.js";
 export type { TakeoverRoot } from "./takeover.js";
 export { splitFrontmatter } from "./frontmatter.js";
 export { parseSkillMd } from "./parse.js";
 export { scanSkills } from "./scan.js";
+export { agentSkillSources } from "./agent-sources.js";
 export {
   detectConflicts,
   effectiveSkillScope,

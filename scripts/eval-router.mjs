@@ -4,15 +4,23 @@ import process from "node:process";
 import assert from "node:assert/strict";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { readCatalog, catalogHash, catalogToSkillMetas } from "../packages/core/dist/index.js";
 import { Bm25Router } from "../packages/router/dist/bm25.js";
-import { getDefaultHubHome } from "../packages/shared/dist/index.js";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const catalog = await readCatalog(
-  process.argv[2] ?? path.join(getDefaultHubHome(), "catalog.json"),
-);
+const args = process.argv.slice(2);
+if (args[0] === "--") args.shift();
+const [catalogArgument, outputArgument] = args;
+if (!catalogArgument || catalogArgument.startsWith("-")) {
+  console.error("用法: pnpm eval:router -- <catalog.json> [report.json]");
+  console.error("该评估需要显式提供 catalog 路径，不会读取默认用户 Hub。");
+  process.exitCode = 2;
+  process.exit();
+}
+const catalogPath = path.resolve(catalogArgument);
+const catalog = await readCatalog(catalogPath);
 const dataset = JSON.parse(await readFile(path.join(repo, "evals/router/recall.v1.json"), "utf8"));
 const skills = catalogToSkillMetas(catalog);
 const names = new Set(skills.map((skill) => skill.name));
@@ -38,7 +46,9 @@ function legacyTokens(text) {
   return [...seen];
 }
 const current = new Bm25Router();
+const currentBuildStarted = performance.now();
 await current.build(skills);
+const currentBuildMs = performance.now() - currentBuildStarted;
 function referenceRouter(weighted) {
   const artifact = current.toArtifact();
   artifact.df = {};
@@ -69,16 +79,24 @@ const report = {
   catalogHash: catalogHash(catalog),
   skillCount: skills.length,
   labelStatus: dataset.labelStatus,
+  mode: "offline-bm25-only",
   variants: [],
   notes:
-    "Reference variants use the same current metadata; not a historical before/after comparison. Legacy query tokens are space-separated so current query tokenization preserves the old unigram set. No activation decision/model calls; noneCandidateRate is candidate availability, not agent false activation rate. Draft labels are not a product quality guarantee.",
+    "Reference variants use the same current metadata; not a historical before/after comparison. Legacy query tokens are space-separated so current query tokenization preserves the old unigram set. Catalog path is explicit; no default user catalog is read. Offline BM25 makes no model calls: measured cost is not applicable, Jev escalation rate is null, and noneCandidateRate is candidate availability rather than false activation. Rows contain query and Skill names; keep any saved report local. Draft labels are not a product quality guarantee.",
 };
-for (const [variant, router, legacy] of [
-  ["pre-change-ranking", referenceRouter(false), true],
-  ["weighted-with-unigrams", referenceRouter(true), true],
-  ["weighted-bigrams", current, false],
+const preChangeBuildStarted = performance.now();
+const preChange = referenceRouter(false);
+const preChangeBuildMs = performance.now() - preChangeBuildStarted;
+const weightedBuildStarted = performance.now();
+const weighted = referenceRouter(true);
+const weightedBuildMs = performance.now() - weightedBuildStarted;
+for (const { variant, router, legacy, buildMs } of [
+  { variant: "pre-change-ranking", router: preChange, legacy: true, buildMs: preChangeBuildMs },
+  { variant: "weighted-with-unigrams", router: weighted, legacy: true, buildMs: weightedBuildMs },
+  { variant: "weighted-bigrams", router: current, legacy: false, buildMs: currentBuildMs },
 ]) {
   const rows = [];
+  const queryLatenciesMs = [];
   for (const task of dataset.cases) {
     const tokens = legacyTokens(task.query);
     // Duplicate a single legacy token so its control query bypasses the new single-char fallback;
@@ -87,7 +105,9 @@ for (const [variant, router, legacy] of [
       tokens.length === 1 && /^[\u4e00-\u9fff]$/.test(tokens[0])
         ? `${tokens[0]} ${tokens[0]}`
         : tokens.join(" ");
+    const queryStarted = performance.now();
     const hits = await router.query({ text: legacy ? referenceQuery : task.query, topK: 5 });
+    queryLatenciesMs.push(performance.now() - queryStarted);
     const top5 = hits.map((hit) => hit.name);
     rows.push({
       ...task,
@@ -111,23 +131,32 @@ for (const [variant, router, legacy] of [
       ambiguousCount: ambiguous.length,
       ambiguousHitAt5: ambiguous.filter((row) => row.hitAt5).length / ambiguous.length,
       falseActivationRate: null,
+      queryLatencyMs: {
+        p50: percentile(queryLatenciesMs, 0.5),
+        p95: percentile(queryLatenciesMs, 0.95),
+        total: queryLatenciesMs.reduce((sum, value) => sum + value, 0),
+      },
+      indexBuildLatencyMs: buildMs,
+      modelCalls: 0,
+      measuredCostUsd: null,
+      costStatus: "not-applicable-offline",
+      escalationRate: null,
+      escalationStatus: "not-applicable-bm25-has-no-jev-decision",
     },
     rows,
   });
 }
-await mkdir(path.join(repo, "outputs"), { recursive: true });
-await writeFile(
-  path.join(repo, "outputs/router-recall-latest.json"),
-  JSON.stringify(report, null, 2) + "\n",
-);
-console.log(
-  JSON.stringify(
-    {
-      skillCount: report.skillCount,
-      labelStatus: report.labelStatus,
-      variants: report.variants.map(({ variant, metrics }) => ({ variant, metrics })),
-    },
-    null,
-    2,
-  ),
-);
+if (outputArgument) {
+  const outputPath = path.resolve(outputArgument);
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, JSON.stringify(report, null, 2) + "\n");
+  console.log(JSON.stringify({ ok: true, outputPath, variants: report.variants }, null, 2));
+} else {
+  console.log(JSON.stringify(report, null, 2));
+}
+
+function percentile(values, quantile) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  return Number(sorted[Math.max(0, Math.ceil(quantile * sorted.length) - 1)].toFixed(3));
+}

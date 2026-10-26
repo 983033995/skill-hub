@@ -358,6 +358,6 @@ cli 稳定 ↘ mcp(M3)
 - OAuth、多租户及npm发行另行决策，当前保持源码分发。
 
 - [x] P26-02：单包npm候选及CLI/npm exec/stdio/HTTP/Web安装验收，源码private保留，版本0.2.0；有效npm身份和注册库发布另验。
-- [ ] P26-03：npm注册库发布、integrity回读及registry版本安装；当前身份查询401。
+- [x] P26-03：@zhangheteng/skill-hub@0.2.0手动发布、官方registry字节/integrity回读及安装验收通过。
 
-- [ ] P26-04：GitHub Actions OIDC标签自动发布、npm精确信任绑定及0.2.1真实发行回读；manual dispatch仅dry-run。
+- [x] P26-04：GitHub Actions OIDC精确信任绑定，v0.2.1真实发布/provenance/registry安装验收通过（run 40319985700）；manual dispatch仅dry-run。

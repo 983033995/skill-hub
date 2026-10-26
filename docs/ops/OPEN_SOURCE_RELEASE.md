@@ -2,7 +2,7 @@
 
 Status: Active · Reviewed: 2026-10-26
 
-Repository: [983033995/skill-hub](https://github.com/983033995/skill-hub), public source distribution under MIT, with @zhangheteng/skill-hub@0.2.0 published on npm and 0.2.1 automated release in preparation; root/workspaces retain private=true. The separately generated command package follows [npm distribution](NPM_DISTRIBUTION.md) and ADR0014.
+Repository: [983033995/skill-hub](https://github.com/983033995/skill-hub), public source distribution under MIT, with @zhangheteng/skill-hub@0.2.1 published through GitHub Actions OIDC and provenance verified; root/workspaces retain private=true. The separately generated command package follows [npm distribution](NPM_DISTRIBUTION.md) and ADR0014.
 
 ## Community and workflow
 

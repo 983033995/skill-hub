@@ -17,7 +17,7 @@ pnpm docs:check
 pnpm smoke
 ```
 
-Build output goes to each workspace's ignored `dist/` folder. `@zhangheteng/skill-hub@0.2.0` is published on npm; `pnpm pack:npm` builds an isolated installable tarball and `pnpm check:npm` verifies it. See [npm distribution](NPM_DISTRIBUTION.md). Source users can run `pnpm hub`, `pnpm web`, or the built Node entries.
+Build output goes to each workspace's ignored `dist/` folder. `@zhangheteng/skill-hub@0.2.1` is published on npm; `pnpm pack:npm` builds an isolated installable tarball and `pnpm check:npm` verifies it. See [npm distribution](NPM_DISTRIBUTION.md). Source users can run `pnpm hub`, `pnpm web`, or the built Node entries.
 
 `pnpm eval:check` validates the checked-in v1 generic dataset's exact 50-task composition (30 required, 15 none, 5 ambiguous) and common secret/path patterns; other task counts or class mixes require a new contract version. It does not certify semantic anonymity, label correctness, or routing quality. This is a versioned data-shape gate, not a draft-label quality threshold. The offline `pnpm eval:router -- <catalog.json> [report.json]` command requires an explicit catalog path so it never silently reads `~/.skill-hub`; reports contain task text and Skill names, so keep reports local when using a private catalog. Neither command calls Jev or another model API.
 
@@ -92,3 +92,5 @@ Do not store API keys in committed YAML/JSON. See [MODELS](../architecture/MODEL
 ## Streamable HTTP MCP
 
 `pnpm mcp:http` starts the separate authenticated MCP endpoint. Required secret: `SKILL_HUB_HTTP_TOKEN`; default listener `127.0.0.1:8788`, fixed three-tool runtime. Use `SKILL_HUB_HTTP_HOST`, `SKILL_HUB_HTTP_PORT` (otherwise platform `PORT`), `SKILL_HUB_HTTP_ALLOWED_HOSTS` and optional `SKILL_HUB_HTTP_ALLOWED_ORIGINS` for hosting. Non-loopback binding requires an explicit Host allowlist. See [REMOTE_MCP](REMOTE_MCP.md) for all settings, storage, TLS and acceptance limits. Web REST and stdio startup are unchanged; public hosting and npm release are not performed automatically.
+
+When a local npm mirror has not synchronized a new version, use the official registry explicitly (for example `npm exec --registry=https://registry.npmjs.org/ --package=@zhangheteng/skill-hub@0.2.1 -- skill-hub version`). Publishing and acceptance do not rewrite personal registry settings.

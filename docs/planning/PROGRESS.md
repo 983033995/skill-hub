@@ -762,3 +762,12 @@ P24-02后续验收完成：用户回复“可以”明确授权仅重启4173本�
 - 本机npm默认registry为npmmirror，初次新包回读404来自镜像未同步；验收改为直接HTTPS读取官方版本元数据和tarball并检查字节integrity，不改用户npm配置。保留无scope失败、MFA、scope发布与回读为独立证据。
 - Owner追加授权后续GitHub Actions自动发布。新增publish-npm.yml（stable tag真实发布、manual仅dry-run）、仅publish job有OIDC权限，复用三组CI、精确包验收、官方仓库/标签版本/main祖先/已存在字节校验和发布后registry安装；无长期npm token。
 - 0.2.1补丁用于首次真实Action验证，包含发行README与回读可靠性修正；配置绑定与实际发行结果后续追加。
+
+## 2026-10-26 — P26-04 GitHub Actions自动发布完成
+
+- PR #11通过253测试与三组必需CI后squash合入main：12d023177b73b5af20d1a9b765081b55a2f193c4；合并后的main CI 40319852325全部通过。v0.2.1标签指向该提交，未绕过分支保护或改写标签。
+- npm trust在Owner官方MFA后创建成功，绑定983033995/skill-hub与publish-npm.yml，允许publish（npm同时保留stage publish默认权限）；无GitHub长期npm token。
+- Action 40319985700 attempt1以OIDC成功发布@zhangheteng/skill-hub@0.2.1。后续安装探测遇到官方版本查询短时404，首次验收失败；未重复发布。官方元数据可见后，确认下载字节与Action已验收tarball相同。
+- npm SLSA provenance已读取并核对：工作流路径、refs/tags/v0.2.1、main提交12d02317和GitHub-hosted builder/attempt1一致。实际Action产物93文件/144431字节，integrity记录在NPM_DISTRIBUTION.md；不拿其它本地打包器产物冒充同字节。
+- 先完整下载保存attempt1产物，再移除该次生成的远端artifact，为旧工作流重试保留同名输出空间；attempt2识别相同registry integrity并跳过发布，完整官方registry下载/哈希/新prefix CLI/npm exec/模板/profile/stdio/HTTP/Web回读成功，最终Action绿色。另一次本地官方registry回读也通过，无个人Hub和模型调用。
+- 后续可靠性修正：404元数据查询至多12次、15秒间隔；其它错误立即失败；artifact设置overwrite支持重跑。不移动tag、不覆盖npm版本。同步README/状态/任务板/路线图/发行回执；该收尾只改发行脚本/工作流和仓库文档，不改变已发布包的运行代码。

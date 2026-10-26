@@ -32,3 +32,7 @@
 操作说明见[NPM_DISTRIBUTION](../ops/NPM_DISTRIBUTION.md)。
 
 2026-10-26发布阶段：npm已对无scope的skill-hub返回近似名称E403，按登录Owner的scope改为@zhangheteng/skill-hub；四个bin名称保持不变。
+
+## GitHub Actions后续发布（2026-10-26 Owner追加授权）
+
+`publish-npm.yml`使用GitHub-hosted runner和npm OIDC，无长期token；完整复用三组CI后，在Node24/pinned npm中验收精确tarball。只有官方仓库稳定版本标签push、标签=manifest版本且提交已在main历史内才可真实publish；manual dispatch只dry-run。发布后官方registry元数据/字节integrity和安装验收必须通过；已存在版本不同字节拒绝覆盖。npm信任配置绑定精确workflow filename并回读，首次Action发布才证明端到端。Owner授权发布自动化包含一次0.2.1补丁版验证，记录真实回执，不把配置完成当运行成功。

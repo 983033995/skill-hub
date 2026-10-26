@@ -71,7 +71,7 @@ Limits: 1MiB uncompressed JSON body, 16 active POST requests, ten-second header 
 
 [Smithery's current publishing guide](https://smithery.ai/docs/build) supports distribution of an already-hosted Streamable HTTP URL or a local MCPB artifact. Listing/gateway distribution does not prove this Node/filesystem service runs unchanged there. Confirm the current runtime, storage and OAuth requirements before selecting an adapter.
 
-The [npm registry](https://docs.npmjs.com/about-the-public-npm-registry/) distributes packages; it does not keep HTTP processes running. A future npm package could simplify local stdio or hosted startup, while a platform runs the service. Source workspaces stay `private: true`. `pnpm pack:npm` now generates a separate single command package, and `pnpm check:npm` verifies installation, npm exec and MCP entry points. See [npm distribution](NPM_DISTRIBUTION.md). Registry publication remains pending; no public npm install/npx command is claimed yet.
+The [npm registry](https://docs.npmjs.com/about-the-public-npm-registry/) distributes packages; it does not keep HTTP processes running. A future npm package could simplify local stdio or hosted startup, while a platform runs the service. Source workspaces stay `private: true`. `pnpm pack:npm` now generates a separate single command package, and `pnpm check:npm` verifies installation, npm exec and MCP entry points. See [npm distribution](NPM_DISTRIBUTION.md). `@zhangheteng/skill-hub@0.2.0` is published and registry installation verified; npm distribution does not create a hosted URL.
 
 ## Remaining acceptance
 

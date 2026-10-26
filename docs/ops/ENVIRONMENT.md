@@ -17,7 +17,7 @@ pnpm docs:check
 pnpm smoke
 ```
 
-Build output goes to each workspace's ignored `dist/` folder. Registry publication is pending; `pnpm pack:npm` builds an isolated installable tarball and `pnpm check:npm` verifies it. See [npm distribution](NPM_DISTRIBUTION.md). Source users can run `pnpm hub`, `pnpm web`, or the built Node entries.
+Build output goes to each workspace's ignored `dist/` folder. `@zhangheteng/skill-hub@0.2.0` is published on npm; `pnpm pack:npm` builds an isolated installable tarball and `pnpm check:npm` verifies it. See [npm distribution](NPM_DISTRIBUTION.md). Source users can run `pnpm hub`, `pnpm web`, or the built Node entries.
 
 `pnpm eval:check` validates the checked-in v1 generic dataset's exact 50-task composition (30 required, 15 none, 5 ambiguous) and common secret/path patterns; other task counts or class mixes require a new contract version. It does not certify semantic anonymity, label correctness, or routing quality. This is a versioned data-shape gate, not a draft-label quality threshold. The offline `pnpm eval:router -- <catalog.json> [report.json]` command requires an explicit catalog path so it never silently reads `~/.skill-hub`; reports contain task text and Skill names, so keep reports local when using a private catalog. Neither command calls Jev or another model API.
 

@@ -14,7 +14,7 @@
 
 Skill Hub 是一个**本地优先的 Agent Skill 管理器**。它管理包含 `SKILL.md` 及脚本、参考资料、素材的目录，通过 MCP 提供任务搜索、正文与附件的按需读取，减少在不同工具之间反复维护副本的工作。
 
-**当前为 v0.2.0 发行候选，MIT 开源，尚未上传 npm 注册库。** 可从源码构建，也可生成并验收本地安装包。[npm 打包说明 →](docs/ops/NPM_DISTRIBUTION.md) 本地 BM25 路由无需模型 Key；CI 覆盖 Linux/macOS，Windows 部署仍待验证。
+**MIT 开源，npm 包名为 `@zhangheteng/skill-hub`。** 0.2.0 已发布，0.2.1 增加 GitHub Actions 发布。可运行 `npx --yes @zhangheteng/skill-hub version` 或从源码构建。[npm 分发说明 →](docs/ops/NPM_DISTRIBUTION.md) 本地 BM25 路由无需模型 Key；CI 覆盖 Linux/macOS，Windows 部署仍待验证。
 
 ## 为什么做 Skill Hub
 

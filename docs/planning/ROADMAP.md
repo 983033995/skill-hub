@@ -359,3 +359,5 @@ cli 稳定 ↘ mcp(M3)
 
 - [x] P26-02：单包npm候选及CLI/npm exec/stdio/HTTP/Web安装验收，源码private保留，版本0.2.0；有效npm身份和注册库发布另验。
 - [ ] P26-03：npm注册库发布、integrity回读及registry版本安装；当前身份查询401。
+
+- [ ] P26-04：GitHub Actions OIDC标签自动发布、npm精确信任绑定及0.2.1真实发行回读；manual dispatch仅dry-run。

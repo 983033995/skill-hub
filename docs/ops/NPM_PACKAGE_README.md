@@ -2,16 +2,18 @@
 
 One Skill store for multiple agents: task-based search, progressive text/attachment reads, managed updates, and optional local usage insights.
 
-This is the npm distribution candidate for [983033995/skill-hub](https://github.com/983033995/skill-hub). A generated tarball is not proof of registry publication. Requires Node.js >=20; Git is needed for GitHub-backed Skill installation.
+This is the npm command distribution for [983033995/skill-hub](https://github.com/983033995/skill-hub). Requires Node.js >=20; Git is needed for GitHub-backed Skill installation.
 
-## Install a local release candidate
+## Install
 
 ```bash
-npm install --prefix ./hub-trial /absolute/path/to/zhangheteng-skill-hub-0.2.0.tgz
-./hub-trial/node_modules/.bin/skill-hub version
+npm install --global @zhangheteng/skill-hub
+skill-hub version
+# Or run without a global installation:
+npx --yes @zhangheteng/skill-hub version
 ```
 
-After a version has actually been published to npm, install the verified package/version using your npm client. For multiple binaries, use `npm exec --package=<verified-package>@<version> -- <binary>` and choose a command below. No package install hook creates or migrates your Skill store.
+For reproducible installation pin the version. To select another binary, use `npm exec --package=@zhangheteng/skill-hub@<version> -- <binary>` and choose a command below. No package install hook creates or migrates your Skill store.
 
 | Command | Purpose |
 |---|---|

@@ -8,6 +8,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { setTimeout, clearTimeout } from "node:timers";
+import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { Client } from "../apps/mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js";
 import { StdioClientTransport } from "../apps/mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.js";
@@ -17,6 +18,7 @@ const exec = promisify(execFile);
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const checks = [];
 const { fetch } = globalThis;
+const { AbortSignal } = globalThis;
 
 async function toolJson(client, name, args) {
   const result = await client.callTool({ name, arguments: args });
@@ -48,21 +50,18 @@ async function main() {
     : candidateRoot;
   let installSpec = report.tarball;
   if (args.length) {
-    const { stdout } = await exec(
-      "npm",
-      [
-        "view",
-        `${report.name}@${report.version}`,
-        "--json",
-        "--registry=https://registry.npmjs.org/",
-      ],
-      {
-        cwd: root,
-        timeout: 30_000,
-        maxBuffer: 4 * 1024 * 1024,
-      },
+    const url = new URL(
+      `https://registry.npmjs.org/${encodeURIComponent(report.name)}/${report.version}`,
     );
-    const metadata = JSON.parse(stdout);
+    let response;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      url.searchParams.set("release_check", `${Date.now()}-${attempt}`);
+      response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+      if (response.status !== 404 || attempt === 4) break;
+      await delay(3000);
+    }
+    if (!response.ok) throw new Error(`Registry metadata lookup failed: HTTP ${response.status}`);
+    const metadata = await response.json();
     assert.equal(metadata.name, report.name);
     assert.equal(metadata.version, report.version);
     assert.equal(metadata.dist.integrity, report.integrity);
@@ -70,8 +69,25 @@ async function main() {
       path.join(root, "registry-metadata.json"),
       JSON.stringify(metadata, null, 2) + "\n",
     );
-    installSpec = `${report.name}@${report.version}`;
-    report = { ...report, published: true, registry: "https://registry.npmjs.org/", installSpec };
+    const download = new URL(metadata.dist.tarball);
+    assert.equal(download.origin, "https://registry.npmjs.org");
+    const archiveResponse = await fetch(download, { signal: AbortSignal.timeout(30_000) });
+    if (!archiveResponse.ok)
+      throw new Error(`Registry tarball download failed: HTTP ${archiveResponse.status}`);
+    const archive = new Uint8Array(await archiveResponse.arrayBuffer());
+    assert.equal(
+      `sha512-${createHash("sha512").update(archive).digest("base64")}`,
+      report.integrity,
+    );
+    installSpec = path.join(root, path.basename(download.pathname));
+    await writeFile(installSpec, archive);
+    report = {
+      ...report,
+      published: true,
+      registry: "https://registry.npmjs.org/",
+      installSpec: `${report.name}@${report.version}`,
+      registryTarball: download.href,
+    };
     checks.push("live registry name/version/integrity match the exact tested tarball");
   }
   const contents = JSON.parse(await readFile(path.join(candidateRoot, "pack-report.json"), "utf8"));

@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.2.0 candidate (unreleased)
+## 0.2.1 (release preparation)
+
+- Automate stable tag releases through GitHub Actions/npm OIDC after full CI, tag/main ancestry checks, exact package acceptance and official registry integrity/install verification.
+- Bypass stale mirror metadata when accepting newly published registry packages; leave personal npm config untouched.
+
+## 0.2.0 (2026-10-26)
 
 ### Project review and public documentation (2026-10-26)
 

@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-26 · Version: v0.2.0 source/npm candidate; registry publication pending
+Updated: 2026-10-26 · Version: 0.2.0 published on npm; 0.2.1 automated-release preparation
 
 The [2026-10-26 completion review](COMPLETION_REVIEW_20261026.md) records the source/test/documentation audit and remaining acceptance gaps.
 

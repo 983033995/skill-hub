@@ -379,3 +379,7 @@ P23-02验收：Web主导航提供“使用与预算”，展示使用率、首�
 ### FR-P26-02 — npm命令分发
 
 提供单个候选包及CLI/stdio/HTTP/Web四个命令，安装时无需内部workspace包已发布；源码保留private、无install hook。以真实tarball安装、npm exec、配置模板/profile及MCP协议验收，CI加入独立包门禁。包内容/安装成功与注册库发布分开记录；发布需有效身份、包名权限、精确tarball与registry integrity回执。npm不承担HTTP运行托管。
+
+### FR-P26-04 — 自动发布验收
+
+Owner追加要求后续通过GitHub Actions自动发布。采用npm Trusted Publishing OIDC，不存长期token；标签对应版本、提交已合入main、全部CI/包验收通过后才发布，人工workflow dispatch只dry-run。首次以0.2.1真实发布/官方registry integrity/新prefix安装验收证明链路；后续按版本标签触发。不得将信任配置或dry-run当已发行。

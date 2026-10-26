@@ -1,6 +1,6 @@
-# npm distribution candidate
+# npm distribution and GitHub Actions publishing
 
-Status: 0.2.0 candidate · Registry publication pending · Updated: 2026-10-26
+Status: 0.2.0 published; 0.2.1 Action release in preparation · Updated: 2026-10-26
 
 The source root and all workspaces remain `private: true`. Packaging creates a separate installable command package; it does not change npm credentials or upload anything. See [ADR 0014](../adr/0014-single-npm-distribution.md).
 
@@ -37,4 +37,16 @@ Before uploading, establish a valid npm identity without putting tokens in chat/
 
 After publishing, run `pnpm check:npm --registry <absolute-tested-acceptance.json>`. It queries the registry for the exact name/version, compares `dist.integrity` to the tested tarball, installs that exact registry version into a fresh prefix, and repeats command/MCP acceptance without repacking. Only then report the npm URL/version as published. A tarball, local installation or Git commit is not publication evidence.
 
-No automatic publish workflow, credentials, paid hosting or public endpoint is created. HTTP hosting requires a separate selected host with HTTPS and persistent authorized Skill storage; npm only distributes the program.
+No long-lived npm credential, paid hosting or public endpoint is created. HTTP hosting requires a separate selected host with HTTPS and persistent authorized Skill storage; npm only distributes the program.
+
+## GitHub Actions trusted publishing
+
+The `publish-npm.yml` workflow runs on version-tag pushes (`v*`). Manual dispatch performs checks and dry-run only. It reuses all three existing CI matrix entries, builds/accepts one exact tarball under Node24 and pinned npm11.19.0, then publishes only when the tag equals the package version and HEAD is an ancestor of origin/main in the official repository. The publish job alone has id-token write; no NPM_TOKEN is configured. Workflow actions use full-SHA pins. Outputs retain tarball, integrity and acceptance receipts as Actions artifacts.
+
+The trusted publisher on npm must match exactly: GitHub owner `983033995`, repository `skill-hub`, filename `publish-npm.yml`, direct publish allowed. Configure it with `npm trust github @zhangheteng/skill-hub --file publish-npm.yml --repo 983033995/skill-hub --allow-publish --yes` using an authenticated npm session; account MFA may be required. Read back the trust record. Configuration alone is not proof of an OIDC publish; new npm trust records expire unless first used successfully within two days.
+
+For each later release: update the root/workspace/protocol versions and release notes in a PR, pass CI, merge into main, then create/push the matching stable version tag. Never move an existing release tag or reuse an npm version. Tag pushes trigger publishing; plain main pushes do not. Already-published versions are accepted only when the registry integrity exactly matches the built tarball; otherwise the job fails and requires a version bump.
+
+The release job directly reads official version metadata and downloads its registered tarball, verifies bytes against the tested integrity, then installs in a fresh prefix and repeats CLI/MCP/Web acceptance. This avoids stale mirror metadata for a newly created package and does not modify personal npm configuration. npm installs of public dependencies may still contact the registry. If a publish response is uncertain, inspect the registry first; do not blindly retry or bump the version.
+
+Trusted publishing adds npm provenance for this public repository/package. The initial 0.2.0 was published manually and does not claim Action provenance. A broken later version is repaired by a new version; automatic unpublish or dist-tag rollback is not configured. Restricting existing npm tokens/account settings is a separate operation and is not changed by this workflow.

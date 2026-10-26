@@ -301,4 +301,5 @@
 |----|------|--------|-------|------|
 | P26-01 | 共享MCP处理器、独立HTTP入口和托管说明 | done | codex | 真实SDK/编译HTTP进程、SSE/中文检索/分页附件、鉴权与限制/断开超时回归；55文件251测试及完整门禁通过，公网部署另验 |
 | P26-02 | 单包npm发行准备及真实安装验收 | done | codex | 0.2.0候选、93文件/143114字节；真实npm安装/exec及CLI/stdio/HTTP/Web验收，保留workspace private；本地门禁通过 |
-| P26-03 | npm注册库发布与回读安装验收 | in_progress | codex | Owner已登录；核对身份、精确tarball/CI后发布，再校验registry integrity并重新安装验收 |
+| P26-03 | npm注册库发布与回读安装验收 | done | codex | @zhangheteng/skill-hub@0.2.0已发布，官方registry字节/integrity与新prefix CLI/stdio/HTTP/Web回读通过 |
+| P26-04 | GitHub Actions OIDC自动发布 | in_progress | codex | 完整CI/标签版本与main祖先校验、精确tarball、registry回读、npm信任绑定及0.2.1真实Action回执 |

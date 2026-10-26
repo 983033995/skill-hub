@@ -755,3 +755,10 @@ P24-02后续验收完成：用户回复“可以”明确授权仅重启4173本�
 
 - efa7f552提交的PR #11三组CI通过。npm浏览器MFA完成后，registry明确E403拒绝skill-hub：与已有skillhub过于相似；无上传成功。
 - 根据registry建议和已登录Owner身份，将独立命令发行包默认名改为@zhangheteng/skill-hub；四个bin名称、工具实现和用户数据不变。新名称需重新打包、验收及CI，旧无scope候选保留但不再提交发布。
+
+### P26-03 0.2.0发布与官方注册库回读完成
+
+- @zhangheteng/skill-hub@0.2.0收到npm成功回执，latest=0.2.0。官方registry版本元数据与下载字节的SHA512均等于已验收候选，93文件143133字节；重新安装官方包后CLI/npm exec/模板/profile/stdio分页hash/鉴权HTTP/Web全部通过。
+- 本机npm默认registry为npmmirror，初次新包回读404来自镜像未同步；验收改为直接HTTPS读取官方版本元数据和tarball并检查字节integrity，不改用户npm配置。保留无scope失败、MFA、scope发布与回读为独立证据。
+- Owner追加授权后续GitHub Actions自动发布。新增publish-npm.yml（stable tag真实发布、manual仅dry-run）、仅publish job有OIDC权限，复用三组CI、精确包验收、官方仓库/标签版本/main祖先/已存在字节校验和发布后registry安装；无长期npm token。
+- 0.2.1补丁用于首次真实Action验证，包含发行README与回读可靠性修正；配置绑定与实际发行结果后续追加。

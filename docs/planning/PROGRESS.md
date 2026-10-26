@@ -750,3 +750,8 @@ P24-02后续验收完成：用户回复“可以”明确授权仅重启4173本�
 
 - Owner确认已完成npm登录；当前whoami为zhangheteng，skill-hub公开查询404。复核已验收0.2.0 tarball的93文件、SHA256和SHA512/integrity，常见凭据/本机路径静态检查无命中。
 - 同一tarball的npm publish dry-run通过；未把dry-run算作发布。补充check:npm --registry对精确已测报告进行registry integrity比对和新prefix回读安装验收，真正publish前核对源码提交CI。发布及回读结果另追加。
+
+### P26-03 名称冲突回执与scope调整
+
+- efa7f552提交的PR #11三组CI通过。npm浏览器MFA完成后，registry明确E403拒绝skill-hub：与已有skillhub过于相似；无上传成功。
+- 根据registry建议和已登录Owner身份，将独立命令发行包默认名改为@zhangheteng/skill-hub；四个bin名称、工具实现和用户数据不变。新名称需重新打包、验收及CI，旧无scope候选保留但不再提交发布。

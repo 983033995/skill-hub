@@ -12,7 +12,7 @@
 
 ## 决策
 
-- 源码root/workspace保持`private: true`；用`pnpm pack:npm`从构建结果生成独立`skill-hub`命令包候选，不执行publish。root/各包/协议版本统一为0.2.0，未发布状态保持明确。
+- 源码root/workspace保持`private: true`；用`pnpm pack:npm`从构建结果生成独立`@zhangheteng/skill-hub`命令包候选，不执行publish。root/各包/协议版本统一为0.2.0，未发布状态保持明确。
 - 单包包含CLI、stdio MCP、HTTP MCP、Web入口、当前生产源码对应的编译JS、Web静态文件、五个显式配置模板与本仓库许可。无安装生命周期脚本，不带个人Skill、catalog、日志、node_modules、测试、源码或source map。
 - 打包使用既有TypeScript AST只转换模块specifier：`@skill-hub/*`映射为包内`#skill-hub/*`，由Node imports指向自带模块。未知workspace或未声明外部依赖失败。外部MCP SDK维持原锁定直接依赖版本；不发布七个内部包，不增加bundler依赖。
 - 输出在忽略的`outputs/npm-*`，每次独立目录保留tarball、内容报告、integrity与验收报告。可用`--name`指定经确认的包名；注册库404不是包名注册保证。
@@ -30,3 +30,5 @@
 提供的是命令发行包，不承诺稳定的JavaScript库exports。npm包不会托管HTTP服务；公网部署、OAuth与多租户仍单独验收。实际发布需要有效npm身份，包候选/本地安装/CI与注册库发布分别记录。回退源码改动或旧tarball不影响个人Skill库。
 
 操作说明见[NPM_DISTRIBUTION](../ops/NPM_DISTRIBUTION.md)。
+
+2026-10-26发布阶段：npm已对无scope的skill-hub返回近似名称E403，按登录Owner的scope改为@zhangheteng/skill-hub；四个bin名称保持不变。

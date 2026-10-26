@@ -7,7 +7,7 @@ This is the npm distribution candidate for [983033995/skill-hub](https://github.
 ## Install a local release candidate
 
 ```bash
-npm install --prefix ./hub-trial /absolute/path/to/skill-hub-0.2.0.tgz
+npm install --prefix ./hub-trial /absolute/path/to/zhangheteng-skill-hub-0.2.0.tgz
 ./hub-trial/node_modules/.bin/skill-hub version
 ```
 

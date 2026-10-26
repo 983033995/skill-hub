@@ -23,7 +23,7 @@ Local acceptance uses only synthetic Skills and an isolated Hub. It verifies CLI
 ## Use a local tarball
 
 ```bash
-npm install --prefix ./hub-trial /absolute/path/to/skill-hub-0.2.0.tgz
+npm install --prefix ./hub-trial /absolute/path/to/zhangheteng-skill-hub-0.2.0.tgz
 npm exec --offline --prefix ./hub-trial -- skill-hub version --json
 ```
 
@@ -31,7 +31,7 @@ Commands: `skill-hub`, `skill-hub-mcp`, `skill-hub-mcp-http`, `skill-hub-web`. S
 
 ## Actual registry publication
 
-Local npm authentication returned 401 during this preparation. Public lookup of `skill-hub` returned 404; this does not reserve or guarantee permission to publish that name. No package/version was uploaded.
+After login and browser MFA, npm rejected the unscoped name `skill-hub` with E403 because it is too similar to `skillhub`. The distribution now uses the logged-in owner scope `@zhangheteng/skill-hub`. No version was uploaded by that rejected request. Registry publication and acceptance are recorded separately below.
 
 Before uploading, establish a valid npm identity without putting tokens in chat/repo/logs, verify the chosen package name/scope and version, and inspect the exact tested tarball/content report. Publish that tarball explicitly with public access and the intended registry; never publish the private repository root or silently repack a different artifact. Handle any required two-factor authentication through npm's own flow.
 

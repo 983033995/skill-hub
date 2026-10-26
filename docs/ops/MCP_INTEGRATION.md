@@ -1,6 +1,6 @@
 # MCP integration
 
-Status: Active · Updated: 2026-10-09 · Transport: stdio · Scope: read-only
+Status: Active · Updated: 2026-10-26 · Transport: stdio · Scope: read-only
 
 ## Remote access status
 
@@ -33,8 +33,8 @@ This is the common `mcpServers` shape. Adapt it to your host's schema rather tha
 | `skill_fetch` | Exact-name SKILL.md with metadata and paging |
 | `skill_files` | List one safe attachment directory |
 | `skill_read` | Read a root-relative UTF-8 file with offset/hash |
-| `skill_stats` | Catalog count and defaults |
-| `skill_inventory` | Configured Agent/source summary |
+| `skill_stats` | Catalog count and defaults; not usage counts |
+| `skill_inventory` | Configured targets and built-in/explicit sources; directory state only |
 | `skill_explain` | Provenance, variants, projection and history |
 | `skill_path` | Canonical/source/target diagnostics |
 | `skill_history` | Lifecycle metadata |
@@ -69,3 +69,5 @@ Do not disable other business tools merely to change Skill loading. Plugin-owned
 | Native Skills still shown | Host-specific loader configuration; MCP itself cannot change it |
 
 For a read-only full catalog integrity check run `node scripts/accept-runtime.mjs` intentionally against your selected Hub. It saves hashes/metadata in ignored local outputs. CI instead uses the synthetic `pnpm smoke` Hub.
+
+Usage observation is off by default. A process explicitly configured with `SKILL_HUB_USAGE_LOG` may append local search/read metadata without changing Skill files; report inspection does not record itself. See [usage and budgets](USAGE_AND_CONTEXT.md).

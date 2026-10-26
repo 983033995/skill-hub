@@ -1,8 +1,10 @@
 # skill-hub 升级方案与推进计划
 
+> 历史方案，保留当时决策背景；不是当前功能清单或操作手册。当前状态见[完成情况复核](COMPLETION_REVIEW_20261026.md)与[STATUS](STATUS.md)。
+
 | 字段 | 值 |
 |------|-----|
-| 状态 | Active |
+| 状态 | Deprecated — 历史方案 |
 | 版本 | v0.2 upgrade plan |
 | 最后更新 | 2026-08-16 |
 | Owner | script |

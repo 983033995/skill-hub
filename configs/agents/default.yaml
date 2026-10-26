@@ -26,6 +26,9 @@ agents:
 
 # 可选的 Skill 盘点/导入来源；只扫描其中包含 SKILL.md 的目录。
 # sources 不等于同步目标，project/workspace source 不会默认同步到全局 Agent。
+# inventory 另含主流 Agent 内置只读来源；同 id source 可覆盖路径/停用。
+# 例：deepseek-harness -> ~/.dsh/skills；完整列表见 docs/ops/ENVIRONMENT.md。
+# 内置来源须 ingest --sources <id> 显式导入，不加入同步目标。
 sources: []
 
 router:

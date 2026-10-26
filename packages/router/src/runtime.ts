@@ -14,6 +14,7 @@ import { sha256Content } from "@skill-hub/core";
 import { SkillHubError, isPathInside } from "@skill-hub/shared";
 import { loadHubSkills } from "./hub-service.js";
 import { loadTaxonomy, tagSkill, type SkillTag } from "./taxonomy.js";
+import { observeRead } from "./usage.js";
 
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 100;
@@ -159,20 +160,29 @@ export async function skillFiles(options: {
   };
 }
 
-export async function skillRead(options: {
-  name: string;
-  file?: string;
-  offset?: number;
-  maxChars?: number;
-  catalogPath?: string;
-  configPath?: string;
-}): Promise<SkillReadResult> {
+export function skillRead(
+  options: Parameters<typeof readSkillContent>[0],
+): Promise<SkillReadResult> {
+  return observeRead(options.name, () => readSkillContent(options));
+}
+
+async function readSkillContent(
+  options: {
+    name: string;
+    file?: string;
+    offset?: number;
+    maxChars?: number;
+    catalogPath?: string;
+    configPath?: string;
+  },
+  readLimit = MAX_READ_MAX_CHARS,
+): Promise<SkillReadResult> {
   const offset = boundedInteger(options.offset, "offset", 0, MAX_OFFSET);
   const maxChars = boundedInteger(
     options.maxChars,
     "maxChars",
     DEFAULT_READ_MAX_CHARS,
-    MAX_READ_MAX_CHARS,
+    readLimit,
     1,
   );
   const skill = await loadRuntimeSkill(options.name, options.catalogPath, options.configPath);
@@ -223,6 +233,15 @@ export async function skillRead(options: {
     truncated: nextOffset !== null,
     hash: sha256Content(bytes),
   };
+}
+
+/** Internal inspection path: same file guards, one bounded full read, no usage event. */
+export function inspectSkillText(options: {
+  name: string;
+  catalogPath?: string;
+  configPath?: string;
+}) {
+  return readSkillContent({ ...options, maxChars: MAX_FILE_BYTES }, MAX_FILE_BYTES);
 }
 
 interface RuntimeSkill {

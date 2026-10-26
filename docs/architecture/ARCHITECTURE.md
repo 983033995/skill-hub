@@ -4,7 +4,7 @@
 |------|-----|
 | 状态 | Active |
 | 版本 | v0.1 |
-| 最后更新 | 2026-08-16 |
+| 最后更新 | 2026-10-26 |
 | 对齐 | `HARNESS.md` · `PRD.md` |
 
 ---
@@ -17,7 +17,7 @@ skill-hub 采用 **本地优先、单机可运行** 的分层架构：
 ┌─────────────────────────────────────────────────────────┐
 │  Agents: WorkBuddy / Claude Code / Codex / Cursor ...   │
 └───────────────────────────┬─────────────────────────────┘
-                            │ discover skills dir / MCP / hooks
+                            │ stdio MCP / 显式原生目录兼容
 ┌───────────────────────────▼─────────────────────────────┐
 │  apps/cli  ·  apps/mcp-server                           │
 │  (人机入口 · Agent 入口)                                  │
@@ -51,7 +51,7 @@ skill-hub 采用 **本地优先、单机可运行** 的分层架构：
 
 | 原则 | 说明 |
 |------|------|
-| 单一真源 | 正文只在 Canonical Store |
+| 单一真源 | 每项Skill一个声明真源；受管副本在canonical，显式外部项目路径保留provenance |
 | 来源与目标分离 | `sources` 负责本地 Skill 盘点/导入；`agents` 负责投影目标 |
 | 范围可解释 | user/workspace/project provenance 随 catalog 保留 |
 | 运行时瘦身 | 默认只传递元数据与 Top-K |
@@ -250,9 +250,13 @@ config.agents → compare target vs canonical
 | v0.1 | 2026-08-10 | 首版架构，支撑 Phase 1 开发 |
 
 
-## 10. 来源管理与接管（ADR 0006）
+## 12. 来源管理与接管（ADR 0006）
 
 `core/managed` 管本地/GitHub 获取、来源锁、预检、暂存、归档和恢复；`core/tree` 管完整目录 hash；`core/takeover` 管只读接管报告。CLI managed 写入完成后增量写 catalog/history，再调用既有 index；sync 仍独立承担 Agent 投影。没有新增常驻后台服务或跨 Agent 安装器依赖。
+
+P23-01：`core/context-cost`提供无IO的版本化文本粗估；`core/usage`管理独立本地JSONL事件与聚合。`router/usage`通过AsyncLocalStorage区分CLI/MCP/Web/library的search/read，只有显式环境变量才记录，不改Skill/catalog。`router/context-cost`复用安全文本读取做显式静态盘点，观测作用域关闭避免自计数；CLI提供usage/context-cost报告，runtime工具集合与Web界面不扩展。见[ADR0012](../adr/0012-local-usage-context-estimates.md)。
+
+P23-02：`router/usage-overview`组合当前catalog、taxonomy、usage与context-cost，先确定时间/来源内全库首段分母，再过滤/排序/分页；`apps/web`只负责固定参数GET路由与显示。Web新增独立`/#/usage`视图，保持原技能库/详情/盘点行为和MCP工具集合。缺失日志、未知占比、局部错误与预算粗估分别显示，不建立另一份可写真源或统计缓存。
 
 状态根新增 `managed-lock.json` 与串行写入锁 `.managed.lock`；更新原版本保存于 backups 的唯一批次。事务恢复失败时保留 `.managed-txn-*` 和备份以供恢复。目录/来源锁与 catalog/index 不是同一跨包事务，后者失败会报错而非回滚已成功的文件更新。详情见 API §7 与 ADR 0006。
 

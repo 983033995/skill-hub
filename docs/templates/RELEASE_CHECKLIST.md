@@ -10,6 +10,7 @@
 - [ ] main 绿
 - [ ] CHANGELOG 已写
 - [ ] 标签已打（若使用）
+- [ ] `pnpm eval:check` 通过；若标签仍为 draft，未将它描述为路由质量/准确率门禁
 
 ## 文档
 

@@ -25,6 +25,8 @@
     "benchmark:mcp": "node scripts/benchmark-mcp.mjs",
     "benchmark:opencode": "node scripts/benchmark-opencode-runtime.mjs",
     "eval:router": "node scripts/eval-router.mjs",
+    "eval:check": "node scripts/check-router-eval.mjs",
+    "eval:router:jev": "node scripts/eval-router-jev.mjs",
     "benchmark:native": "node scripts/benchmark-opencode-native.mjs"
   },
   "devDependencies": {

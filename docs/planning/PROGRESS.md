@@ -498,3 +498,232 @@
 - **main规则**：main-integrity新增强制PR与review讨论解决，保留三组CI、零强制审批数和既有紧急绕过；API读回验证生效。
 - **提交与模板**：CONTRIBUTING明确main必须走PR；PR模板和Bug/Feature表单双语化；关闭空白Issue，漏洞仍走私密报告链接。
 - **验证**：本地typecheck/build/lint/159测试/docs（58文件无断链）/smoke及配置文件格式检查通过。
+
+
+### 2026-10-21 — 外部Skill单真源接入（公开摘要）
+
+- 本地外部Skill维护验证了catalog no-materialize登记、canonical根链接、精确读取、附件发现、索引刷新与单Agent显式投影的组合；没有为这些操作新增第二份可写真源或执行全库sync。
+- 这些是个人宿主接入记录，不构成仓库提供图像/视频生成能力或跨宿主普遍验收。个人目录、媒体操作细节、素材和本机备份/运行回执不纳入公开交付；完整原记录保留在原工作区。
+- 后续软件门禁均使用合成Skill和隔离目录；外部项目的生产内容、凭据及配置不属于本仓库发行物。
+
+### 2026-10-24 — P11-03 最小 available_skills manifest 导出
+
+- 新增 CLI `manifest`，按 100 条分页导出已登记 Skill 的 `name`、`description` 和 Hub `skill_search`/`skill_read`/`skill_files` 按需读取提示，不写入 Skill 正文或本地路径；输出按名称稳定排序并转义 XML 特殊字符、过滤非法 XML 码点。
+- 默认行为只预览：无 `--out` 输出清单；指定 `--out` 只报告 dry-run 计划。仅 `--out <path> --apply --yes` 才写入，使用同目录临时文件加 rename 原子替换普通文件，并拒绝符号链接/目录。此功能是显式静态发现兼容项，不改变 Hub MCP 默认按需读取路径。
+- 101 个合成 Skill 验证分页、排序、转义、不泄漏正文、dry-run 无写入、显式确认后写入和符号链接拒绝。`pnpm test` 38 文件/162 项通过；`pnpm typecheck`、`pnpm lint`、`pnpm build`、`pnpm docs:check`、隔离 `pnpm smoke` 全部通过；smoke 确认未触碰个人 Hub。
+- 设计依据：[Agent Skills specification](https://agentskills.io/specification) 的 name/description 元数据与渐进披露说明；[OpenSkills README](https://github.com/numman-ali/openskills/blob/main/README.md) 的 `<available_skills>` XML 和按需读取模式。实现仅借鉴清单结构，不声称兼容其安装/同步流程。
+
+
+### 2026-10-24 — P11-04 来源锁迁移与 Git commit pin 文档切片
+
+- 复核 managed lock v1：GitHub 来源保存 `url/ref/commit/subpath/treeHash`；完整树 hash 覆盖文件内容、路径、空目录和执行位，忽略 `.git` 与时间戳。`adopt` 要求现有 canonical 与来源完整树一致；旧 catalog 的 SKILL.md hash 不能充当 managed treeHash。
+- 在临时 `SKILL_HUB_HOME=/tmp/skill-hub-pin-check.4wqcRN/hub` 使用 `anthropics/skills` 的 `pdf` Skill 和完整 commit `dbd4588f9e1033efb41dad4bef2f7947c8993d44` 执行 install dry-run；CLI 返回 `dryRun=true`、`provenance.revision` 等于请求 SHA，`sourceTreeHash=sha256:95f323c8fcd157554bc5fc98df5732c8dd9dab2334488889e3c2df7924bd2cd8`。未执行 apply，也未读写个人 Hub。
+- 同 SHA 对 skill-hub 自身仓库的试验在来源扫描阶段因既有 `tests/fixtures/skills/bad-skill/SKILL.md` 无效而拒绝部分导入；这是扫描完整性保护，本轮没有改它，也不能用该失败否定 SHA ref 支持。
+- 更新统一管理手册与 API/STATUS，准确说明来源锁字段、SHA pin、adopt 条件，并明确目前没有用户可调用的 per-Skill 历史 rollback/overlay/fork 命令。P11-04 保持 in_progress；完整用户工作流仍未完成。
+
+
+### 2026-10-24 — P11-04 单 Skill managed rollback 实现
+
+- managed update 备份批次现在在 Skill 树外写 versioned `managed-rollback.json`，保存本批次更新前的来源锁；文件使用 exclusive 临时文件和同目录 rename，目录与 sidecar 保持状态目录权限边界。rollback 不改写整份旧 lock，只把目标 Skill 的旧锁合并进当前锁，保留其他 Skill 后续版本。
+- 新增 `skill-hub rollback <name> --from <backupPath>`：默认 dry-run；写入需 `--apply --yes`。只接受 `backups/<batch>/<name>` 精确子路径，拒绝 symlink、目录错位、旧式无 sidecar 备份、坏 schema、备份树与来源锁 hash 不匹配，以及已偏离当前锁的 canonical。本地快照恢复不访问上游、不执行 Skill；每次回滚也备份当前版，可用返回的新 backupPath 再回滚。
+- 167 项测试通过；`pnpm build` 与隔离 `pnpm smoke` 通过。Core 测试覆盖多次版本、来源目录离线后仍能回滚、dry-run 不写入、反向回滚、多 Skill 批次只回退目标锁、本地编辑保护、备份篡改拒绝和旧备份拒绝；smoke 通过真实 CLI dispatch、默认预览、apply 门、同步后的 symlink 可见性及 `verify`。Smoke 报告 `personalHubTouched=false`、`paidModelCalls=0`。
+- 事务语义仍与既有 managed 更新一致：目录和 managed lock 在 core 事务中恢复；CLI 随后的 catalog/history/index 刷新不是同一跨包事务。错误时按手册运行 `list` 检查并重建 index。本地用户可篡改 state backups；sidecar/hash 是一致性检查，不是签名防篡改机制。P11-04 仍未完成，因为 overlay/fork 工作流待实现。
+
+
+### 2026-10-24 — P11-04 managed fork 与 overlay 来源关系完成
+
+- managed lock v1 增加可选 `overlayOf`，旧锁无该字段仍可读；install/adopt 新增 `--overlay-of <base-name>`，只接受单个、不同于 base 名称的 Skill，且 CLI 要求 base 已在当前 catalog 并且路径可读。关系写入 managed lock、catalog provenance 和 `overlay` history；update/list/rollback 保留它。
+- 用户 fork 流程是复制整棵 Skill 到新目录、把目录名和 SKILL.md `name` 改成新 kebab-case 名，再 install/adopt 并指定 `--overlay-of`。来源锁保存 Git commit（若 Git source）和完整 treeHash。overlayOf 仅按名称标注关系，不做文件合并、不改路由冲突；没有自动 fork-copy 或既有 base 重绑定命令。
+- 增加 integration 回归：配置 `sources[].overlay_of` 的 no-materialize ingest 写入 provenance/history，fork source 移动后更新 source path 并重新 ingest 可恢复 catalog 路径；managed 测试覆盖 overlayOf 在 install/update/list/rollback 间保留、多技能批次只改目标锁、自引用与多技能拒绝。隔离 CLI smoke 验证 base 检查、默认预览、显式 apply、managed lock/history 写入及后续 update 保留关系。
+- `pnpm test` 39 文件/170 项、`pnpm typecheck`、`pnpm lint`、`pnpm build`、`pnpm docs:check`、`pnpm smoke` 和 `git diff --check` 通过；smoke `personalHubTouched=false`、`paidModelCalls=0`。P11-04 达到任务板验收并标记 done；P11-05 Jev 评估集与 CI/release 门禁成为下一项。
+- 默认并发全测曾因该 runtime 文件系统用例超过 5 秒偶发超时；用例包含多轮 symlink/目录扫描/分页读取，独立及单 fork 运行通过。仅将该用例 timeout 调为 10 秒，断言未变；之后默认 `pnpm test` 170 项全通过。
+
+
+### 2026-10-24 — P11-05 Router 评估集 CI 数据合同门禁
+
+- 核实现有评估集为 50 条（30 required、15 none、5 ambiguous），`labelStatus` 明确要求 Owner 复核；初始检查发现旧 `eval:router` 默认读取 `~/.skill-hub/catalog.json` 并写 ignored outputs，故不直接接入公共 CI，也不冒称 draft labels 可支持质量阈值。
+- 新增 `pnpm eval:check` 的独立只读验证器，检查 v1/schema、≥30 条、唯一 ID、task kind 与 expected labels 一致、合法 Skill 名、dataset 自声明 `synthetic-generic`，并扫描常见 home 路径、邮箱、已知 token 形状与 secret assignment。报告只输出字段路径和规则码，不回显任务文本；明确写出静态规则无法证明语义匿名。
+- GitHub Actions 执行 `pnpm eval:check`，没有私有 catalog、写文件或模型 API 依赖。集成测试在临时目录验证当前数据集通过、重复 ID 和邮箱命中会失败且不泄漏查询文本。
+- 当前 `labelStatus` 仍是 agent-authored draft；CI 只门禁数据结构/常见敏感串，不门禁 Recall、accuracy、cost 或 escalation。Owner 审核和显式付费 Jev 评估仍是 P11-05 未完成范围；TypeSafe 官方 API 返回 usage 的 input/output token counts，官方当前主页列出价格信息，但本轮不据此推算任何实际费用。实时费用评估必须明确 opt-in，不能在默认 CI 运行。
+- `pnpm eval:check`、overlay/managed 相关测试及全量检查通过；Gemini 网站登录仍返回 authentication_error，本轮未调用替代型号。设计参考 [TypeSafe 官方 API 文档](https://api.typesafe.ai/redoc) 的 SystemOne 请求/响应和 usage 字段，以及 [Choice 官方指南](https://typesafe-jev.com/en/capabilities/choice/) 对 probability、confidence 语义的区分；后者是独立社区指南，仅用于交叉参考，非 vendor 官方来源。
+- 离线 `eval:router` 改为必须传入显式 catalog 路径，不再默认读取 `~/.skill-hub/catalog.json`；输出默认 stdout，只有用户明确传 report path 才写文件。报告新增每个 variant 的 index build 与 query p50/p95 latency，并明确 cost/USD 与 Jev escalation 对纯 BM25 为 not-applicable/null；用临时 30-Skill 合成 catalog 验证三种 variant 报告结构，结果未作为质量证据保存。report rows 包含 query 和 Skill 名称，私有 catalog 报告应留在本地。
+- 在线 Jev 指标仍待后续 opt-in：TypeSafe 官方 API schema 返回 usage input/output token counts，官方当前主页另列价格，但本轮未调用 API或据此推算 USD。Jev Web 独立审查请求返回 `malformed_sse`，会话已显式关闭且未自动重试；Gemini 4 查询仍因认证失败停止。
+- 默认全量 `pnpm test` 40 文件/173 项、`pnpm eval:check`、`pnpm typecheck`、`pnpm lint`、`pnpm build`、`pnpm docs:check`、`pnpm smoke` 和 `git diff --check` 全部通过；smoke 报告 `personalHubTouched=false`、`paidModelCalls=0`。P11-05 仍未完成，因为标签未 Owner 复核，且本轮没有真实 Jev usage/cost/escalation 运行数据。
+- `docs/harness/QUALITY_GATES.md`、`HARNESS.md`、`docs/ops/ENVIRONMENT.md` 和 release checklist 已同步数据合同门禁与显式 catalog 评估入口；P11-05 后续仍需 Owner 标签复核、真实/授权 Jev 指标和完整 workflow/release 决策。
+
+
+### 2026-10-25 — P11-05 TypeSafe 最近请求 metrics 可观测性
+
+- `TypeSafeRouterEngine.getLastRequestMetrics()` 现在暴露不含输入内容的实例级最新 query 观测：响应 model、round-trip latency、API 报告的 input/output tokens 和 HTTP/JSON 完成状态。API 未报 usage 或字段格式异常时保留 `null`，不因可选计量字段错误而改变路由结果；失败请求只留 latency/status，未发请求为 `undefined`。此 getter 与现有 `getDecision()` 一样不是并发逐请求关联结果。
+- 单测通过 mock fetch 覆盖正常 usage、格式异常 usage 不阻断 routing、请求失败 latency、无 key 时不观测、重建索引清空旧值，以及 metrics 不包含私有请求内容和 API Key。此接口为未来明确 opt-in 的串行 live eval 提供原始使用信号，不触发真实网络/付费调用，也不自行推算成本。
+- DeepSeek 审查指出共享 instance getter 不是并发逐请求结果；API 文档已明确其语义，后续 live evaluator 应串行查询并在每次 query 后立即采样 metrics。默认 `pnpm test` 40 文件/175 项、`pnpm eval:check`、typecheck、lint、docs:check、build、sandbox smoke 和 diff-check 通过；未运行真实 Jev 请求。Gemini 4 模型清单本轮仍因 authentication_error 不可读取。
+
+
+### 2026-10-25 — P11-05 在线 Jev evaluator 基线实现
+
+- 新增 `pnpm eval:router:jev`，只有显式传 catalog、model、max requests、`--confirm-paid-requests` 和 `--confirm-skill-metadata-upload`，且 `TYPESAFE_API_KEY` 存在时才会加载 Router/发请求。每条任务最多请求一次；首个错误后停止，不重试，也不回显 provider error body。`pnpm smoke` 确认不带确认参数时 runner 在加载 catalog/发请求前以 usage 退出。
+- 在线 report 按任务类型记录 required Hit@1/Hit@5、none correct/selected-candidate rate、ambiguous expected Hit@5、Jev escalation recommendation rate、p50/p95 latency、响应 model 与 input/output usage。该比例统计 `escalationRecommended` 模型标志，不是实际人工升级率。默认 stdout；可显式 `--out` 写本地 report，但仅保存任务 id/类别/标签和 Skill 名称，不保存 query/candidate descriptions/paths/key。私有 catalog report 仍需保密。
+- USD 估算必须由用户显式提供 input/output USD per million token rates，且全部成功请求返回完整 usage；否则 USD 为 `null`。本轮没有设置默认价格，也未运行真实 Jev eval，没有线上准确率、费用或升级率结果。
+- 使用 TypeSafe 官方 OpenAPI/API 资料核对 Choice/usage 字段；DeepSeek 对 TypeSafeRequestMetrics 并发语义的审查已采纳，API 文档声明实例级 getter 不是并发逐请求关联。Gemini 4 模型清单再查仍因 authentication_error 停止。
+- 最终 `pnpm test` 40 文件/175 项、`pnpm eval:check`、typecheck、lint、docs:check、build、sandbox smoke 与 diff-check 通过；smoke `personalHubTouched=false`、`paidModelCalls=0`。P11-05 仍需 Owner 复核 labels、选择评估规则，并在单独授权后运行 online benchmark 才能完成。
+
+
+### 2026-10-25 — P11-05 evaluator opt-in 护栏与验收
+
+- 新增 `pnpm eval:router:jev`，要求显式 catalog、model、最大请求数、付费确认和技能元数据上传确认，且必须已有 `TYPESAFE_API_KEY`；runner 固定官方 TypeSafe endpoint 并忽略 `TYPESAFE_API_URL`，每个 draft query 最多发送一次请求，任何一次失败立即停止，不重试。评估调用 metadata-only TypeSafeRouterEngine，报告按类别 hit/none 指标、升级建议率、延迟和 API usage；不保存 query 或目录路径，技能名与标签仍使私有 catalog 报告需保密。
+- USD 估算只有用户显式传 input/output 每百万 token 单价且每个成功响应都返回完整 usage 时才计算；否则输出 null 与原因。没有内置单价、自动取 Keychain 或默认运行；本轮只实现代码并在 smoke 中验证缺少显式确认时以 usage 提示退出，未发真实 Jev 请求。
+- `--out` 使用同目录唯一临时文件+rename，要求目标为普通文件并以 0600 创建，拒绝 symlink/目录；独立 integration test 覆盖原子替换、权限和拒绝覆盖链接目标。Sandbox smoke 确认缺少确认旗标/API key 时均在联网前拦截。`TypeSafeRouterEngine.getLastRequestMetrics()` 的 mock 测试保留 confidence/escalation 排序不变，验证成功/失败 usage 和延迟，不包含输入或 key。在线 accuracy/cost/escalation 仍没有真实证据；Owner 复核 50 条标签仍是 P11-05 未完成项。
+- 全量 `pnpm test` 41 文件/177 项、`pnpm eval:check`、typecheck、lint、docs:check、build、sandbox smoke 和 diff-check 通过；本轮未运行 live evaluator。
+- Live runner 同步包含本地 BM25 baseline：同一 catalog 与同一 draft task prefix，逐任务记录 BM25 top-5 和本地 query latency，并汇总 required/none/ambiguous 指标；Jev 与 BM25 用同一标签比较，BM25 明确为 0 model calls / 0 cost / 无 escalation 决策。新增纯本地合成 BM25 helper 回归；未调用 Jev API。
+- runner endpoint 固定为 `https://api.typesafe.ai/v1/systemone` 并忽略 `TYPESAFE_API_URL`，避免认证后意外将已确认上传的数据发送到其他主机；报告包含 endpoint host 供审计。在线结果仍需单独 opt-in 执行。
+- 若显式提供 `--out`，runner 会在首次 Jev 请求前预检并确保父目录可写，拒绝 symlink/目录目标；最终报告仍用 0600 同目录原子替换。报告中的 escalation 是推荐标记率，不代表真实人工行为。
+- `--max-requests` 选择策略改为确定性 required → none → ambiguous 轮询，按各类别原始顺序取样并在 report 记录全数据和所选样本类别计数。这样小预算尽量覆盖不同类型，但会改变类别比例，metrics 仅描述所选子集、不外推总体；纯函数单测覆盖 N=0/1/3/5/超总量、队列耗尽和顺序稳定。
+- DeepSeek 建议明确轮询样本的选择偏差；已在报告 note 与 API/ENV 文档说明类别比例变化。P11-05 仍不设 draft 质量阈值，Owner 复核和线上评估留待后续。
+
+
+### 2026-10-25 — P11-05 离线路由报告安全与 smoke 闭环
+
+- `eval:router` 要求显式传 `catalog.json`，不再自动读取默认用户 Hub；默认 stdout，只有传入 report path 才写文件。每个 BM25 variant 报 index build 与 query p50/p95，报告明确标注 modelCalls=0、cost not applicable、escalation null；rows 含 query/Skill 名，私有 catalog 报告应留本地。
+- `pnpm smoke` 现在建立临时、合成 metadata catalog 并执行真实离线 evaluator CLI，验证 3 个 variant 的 latency/usage schema 和无模型调用。临时 eval 结果已清理；这些合成 metadata 不用于声称真实路由质量。
+- TypeSafe 官方 API 文档列出 response usage token fields，官方主页单列当前价格信息；本轮未调用付费 API、未从 token counts 推算 USD。Jev Web 独立审查返回 `malformed_sse`，会话状态已检查并关闭，未重试；Gemini 4 模型查询因 authentication_error 停止。
+- 默认 `pnpm test` 40 文件/173 项、`pnpm eval:check`、`pnpm typecheck`、`pnpm lint`、`pnpm docs:check`、`pnpm build`、`pnpm smoke` 与 `git diff --check` 全部通过。P11-05 仍需 Owner 复核标签以及显式授权的在线 Jev quality/usage/escalation eval；draft 数据未进入质量阈值。
+
+
+### 2026-10-25 — P11-05 Jev evaluator 加入同任务 BM25 对照
+
+- opt-in `eval:router:jev` 对同一显式 catalog/task prefix 先运行本地 BM25 baseline，再串行调用 Jev；报告分别记录两者 top-5、required/none/ambiguous 指标与查询延迟。BM25 标为零模型调用、零成本且不适用 escalation，避免拿 Jev 单边指标冒充比较。
+- Live evaluator 固定官方 TypeSafe endpoint 并忽略 `TYPESAFE_API_URL`，要求明确付费和 metadata 上传确认；`--out` 在首次请求前预检目录/目标，并使用私有权限原子写。失败不重试，费用无法确认时保持 unknown。
+- 纯本地 BM25 comparator 单测与隔离 smoke 通过；Smoke 确认 live runner 缺少确认或 Key 时不发请求，且临时 eval catalog/report 清理。全量 `pnpm test` 42 文件/179 项、`pnpm eval:check`、typecheck、lint、docs:check、build、smoke、diff-check 通过。
+- 本轮未调用 Jev API，未取得真实 accuracy/usage/cost/escalation 样本；标签仍是 agent-authored draft。DeepSeek Web runner 审查遇 malformed SSE，已检查并关闭会话；Gemini 4 仍认证失败。P11-05 保持 in_progress，下一步需 Owner 标签复核并单独授权线上评估。
+
+- `--max-requests` 低预算选择对 required/none/ambiguous 做确定性轮询，以减少原始数据顺序导致的类别遗漏；报告同时记录全体、计划选择和实际完成的各类数量。DeepSeek 审查指出抽样改变类别比例，因此 runner 明确声明这些是所选 draft 子集描述，不能外推为总体性能。
+- 明确 catalog 中缺少本次 round-robin 样本的预期 Skill 名时，runner 在读取 API Key/网络请求前以 `E_EVAL_CATALOG_LABELS` 拒绝；隔离 smoke 用临时单 Skill catalog 验证该 preflight。
+
+
+### 2026-10-25 — P11-05 请求预算下的类别分层
+
+- live runner 的 `--max-requests` 现在对 required → none → ambiguous 做确定性轮询、各类别内部保持数据原序；report 写入 sampling strategy、完整数据类别计数与所选样本类别计数。N=1/2/3/5/超总量边界测试验证覆盖顺序、耗尽跳过和稳定性。
+- 低请求预算会改变类别比例，report/文档明确结果只描述被选中的 draft 子集，不能外推为总体性能；未设质量门槛或置信区间。
+- 最终 `pnpm test` 42 文件/181 项、`pnpm eval:check`、typecheck、lint、docs:check、build、隔离 smoke、`eval:router:jev --help` 与 diff-check 全部通过。没有运行在线 Jev 请求；标签复核仍待 Owner。
+
+
+### 2026-10-25 — P11-05 TypeSafe 本地 payload 预览与构造器修复
+
+- 强制重建 TypeScript project references 后发现前一轮抽取的 `buildTypeSafeRouteRequestBody` 引用了作用域外的 `criteria`；增量 typecheck 曾因旧 build-info 没发现。共享构造器现在从候选列表生成 Choice criteria 和 none 选项，并拒绝重复/保留 ID 与超过 254 个候选。TypeSafe 官方 OpenAPI 规定 Choice 的 `criteria` 必填且最多 255 个 property，正好对应 254 个 Skill + none：[OpenAPI](https://api.typesafe.ai/openapi.json)。
+- 新增 `eval:router:jev --preview --catalog ... --model ... --max-requests ...`，与线上请求共用 payload builder。预览不读取 `TYPESAFE_API_KEY`/`TYPESAFE_API_URL`、不联网、不运行 BM25 或 live report；默认 stdout 仅返回汇总。仅显式 `--preview-out` 会保存完整查询和候选 metadata，使用 mode `0600` 的同目录原子写；拒绝在线确认/价格/`--out` 参数，并解析路径别名以避免覆盖 catalog 或评估集。
+- 隔离子进程测试拦截 key/API URL 读取和 `fetch`，验证 summary 无查询/描述、私有 payload 文件含实际请求体且权限为 `0600`；另验证 symlink 目录别名不能覆盖 catalog。候选 ID/255 属性边界由 router 单测覆盖。DeepSeek Web 两轮代码审查发现的保留 ID 与路径别名边界已采纳并通过测试。
+- Gemini 模型清单查询返回 `authentication_error`，依规则停止，未换账号或型号；native DeepSeek subagent transport probe 未按要求只返回 marker，仓库中也没有 `scripts/run-worker.sh` 回退入口，因此未重试该 transport，改用已授权的 DeepSeek Web review。没有运行真实 Jev 请求。
+- 最终 `pnpm test` 42 文件/186 项、`pnpm build`、`pnpm typecheck`、`pnpm lint`、`pnpm docs:check`、`pnpm eval:check`、`pnpm smoke`、代码/测试文件 Prettier check 与 `git diff --check` 全部通过；smoke 报告 `personalHubTouched=false`、`paidModelCalls=0`。全文件 Markdown Prettier check 仍报告 PRD/ROADMAP/TASK_BOARD 的格式不匹配；统一它们会重排多张表格和列表，本轮保留现有文档版式。P11-05 仍待 Owner 复核标签及单独授权的真实 Jev accuracy/usage/cost/escalation 评估。
+
+
+### 2026-10-25 — P11-05 固定 v1 评估数据类别契约
+
+- `pnpm eval:check` 先前只要求至少 30 条任务和每类至少 1 条；这会让删除/重分类任务改变 round-robin 抽样比例却继续通过。现在 validator 按版本定义契约：v1 必须恰好 50 条，其中 required/none/ambiguous 为 30/15/5；未知版本是 CLI 失败，未来分布变化需新增契约版本。
+- 回归测试覆盖 51/49 条漂移、总量不变的类别偏移、类别数仍正确但 required label 丢失、未知版本非零退出。`retrievalQualityThresholdsApplied` 仍为 false；这只约束数据组成和结构，不判断任何语义标签对错。
+- DeepSeek Web 复核同意精确分布应限于 v1，并提醒未知版本必须硬失败、结构计数与语义质量分开；主模型核对了 CLI exit code 和 label-integrity 测试。联网查看 OpenAI Graders API 的 Label Model schema 后确认其将 `labels` 与 `passing_labels` 显式建模，但没有规定该数据集的类别配比；本项目 30/15/5 来自本地 v1 合同，而不是通用外部标准：[Graders API](https://platform.openai.com/docs/api-reference/graders/label-model?lang=python)。
+- 最终 `pnpm test` 42 文件/188 项、`pnpm build`、`pnpm typecheck`、`pnpm lint`、`pnpm docs:check`、`pnpm eval:check`、`pnpm smoke`、代码文件 Prettier check 与 `git diff --check` 通过；CI gate 实测仍报告 50/30/15/5。未运行真实 Jev 请求；Owner 标签复核仍待完成。
+
+
+### 2026-10-25 — P11-05 准备 Owner 标签复核工作表
+
+- 从仓库已检查为 `synthetic-generic` 的 v1 数据集生成 `outputs/jev-label-review-v1.md`，列出 50 个 ID、类别、query 和当前 `expectedAnyOf`，并留空 Owner 决策/修正与理由栏。工作表不含 catalog metadata、Skill 路径、凭据或模型输出，不会回写源 JSON，也不代表标签已通过复核。
+- 确认输出位于 `.gitignore` 的 `outputs/*` 下，权限为 `0600`，表内恰有 50 个任务行；未发送网络请求或调用模型。Owner 可在本地工作表逐项给出批准/修正，再由后续工作明确回写源数据。
+- DeepSeek 复核指出工作表需说明 `expectedAnyOf` 是精确候选名的 OR 集合，并避免暗示 `none` 取决于词面重合。主模型检查 `eval-router-jev` 源码确认 `ambiguous.expectedRecallAt5` 确实作为独立诊断输出，随后在工作表补上 required/none/ambiguous 的判定规则及“勿用 BM25/Jev 输出定义真值”的提醒；源数据和标签未改。
+- 工作表现在给出完整的离线覆盖检查命令 `pnpm eval:router:jev -- --preview --catalog <catalog.json> --model <model> --max-requests 50`（先运行 `pnpm build`），在无 Key/网络下预检全部标签名。联网复核 OpenAI Graders API 后，只借其对 label/passing-label 显式建模的事实，不把它当作 routing ground-truth 依据；语义判定仍由 Owner 按项目定义和 Skill 描述完成。
+
+
+### 2026-10-25 — P11-05 等待 Owner 复核与线上评估授权
+
+- 任务板其余未完成项 P13-03/P14-03 需要宿主 GUI 新会话或 Qoder 登录；P11-05 的离线技术切片、固定 v1 结构合同和 Owner 复核工作表均已准备。当前没有无需用户输入即可继续并符合任务板范围的验收步骤。
+- P11-05 改为 `blocked`，等待 Owner 核对/修正标签、提供用于评估的显式 catalog 路径，并明确授权最多 50 次付费 TypeSafe 请求及上传任务 query 与候选 `name/description/keywords`。本轮没有读用户 catalog、运行付费请求、改源标签或修改用户配置；收到所需输入后再恢复该任务。
+
+### 2026-10-25 — P21-01 DSH 本地 Skill 管理调研
+
+- 用户询问下一步优化方向及 DeepSeek Harness 中热门本地 Skill 管理项目。重点核对 MichengAI/dsh-skills-manager `40677d74f53805c99d183c202cd67ea5bb6294e2`（1.2.18），另对照 daha1216 同名项目与官方 Harness Skill provider/tool 文档；用户原始链接未提供，报告明确候选身份未最终确认。
+- 主要可借鉴项为上游更新/本地冲突双维度状态、文件差异、确认 token 和应用前复验，以及多来源/工作区管理体验。保留 Hub 的完整 Git commit 来源锁、含执行位/空目录的 treeHash、跨 Agent MCP/分页附件读取；不照搬外部归档摘要充作 commit、扫描跳过错误、全目录摘要注入或第二可写真源。
+- DeepSeek Web 对公开设计摘要完成方案复核；主模型核对源码后将建议拆成只读检查契约 → 现有来源更新计划 → 来源迁移 → 管理UI → 可选DSH adapter。P11-05 的付费评估阻塞不应继续阻止独立的管理可靠性切片。具体实施未授权、未开始。
+- 新增研究报告并登记 INDEX/TASK_BOARD。仅保存公开源码快照到 ignored outputs；未安装/运行第三方代码或测试，未修改业务代码或用户 Hub。GitHub API 报告主要候选固定SHA的验证workflow成功；这仅是上游CI证据，不是本机宿主验证。
+- 文档验收：`pnpm docs:check` 59 个 Markdown 文件、无坏本地链接，`git diff --check` 通过。业务代码未变，未重复运行全量代码测试。
+- 用户随后明确确认目标为 MichengAI/dsh-skills-manager，已移除报告、索引与任务板中的项目身份待确认标记；此前源码调研对象正确，优化建议和未实施边界不变。
+
+### 2026-10-25 — P21-02 统一只读更新检查落地
+
+- 用户授权自主学习并推动优化后，新增 core/CLI `check-updates [name,...]`，复用来源锁校验、来源解析和完整树哈希；分别报告 localStatus、upstreamStatus、updateAvailable、applyBlocked、锁/当前/上游hash及Git版本、checkedAt与逐项errors。默认只枚举来源锁；上游变化按锁基线比较，本地修改不再遮住上游；失败保持 unknown/null，complete=false并输出partial JSON后退出3。相同repo/ref在一次检查中共享临时快照，失败结果也复用；无持久缓存、自动重试或Skill执行。
+- list 复用现有 scanner 的 issues 保留健康条目，不完整时显式返回诊断；扫描祖先不可读时不冒称Skill已删除，仍保留canonical symlink/越界保护。CLI只读检查采用参数白名单、拒绝apply/yes，不读取或改写catalog；修正所有managed dry-run的JSON next误称已更新。实际 update/apply 的本地修改拒绝和整批事务保护未弱化。
+- 新增11项core/Git进程mock/编译CLI回归：失败来源与健康项并存、本地修改与上游changed/unchanged独立、坏链/不可读祖先/越界条目、缺失和无lock、坏lock整体失败、写入参数拒绝、同repo/ref共享及清理、固定SHA保持、catalog损坏时仍可只读检查，以及canonical/state/Agent内容hash不变。smoke新增真实编译命令检查。
+- DeepSeek Web 对实现摘要做独立反审查；主模型以源码和测试排除了上游错误未计入complete、共享checkout过早清理等假设，并收紧applyBlocked、祖先扫描失败状态及CLI参数拒绝；显式无来源锁的请求保留error/不完整，因为该请求无法完成版本判断。没有把完整性当写入授权。
+- 既有授权范围内运行一次真实Hub只读检查，完整返回所有受管项而未被单条来源失败遮蔽；真实list也保留可读条目并报告扫描/条目问题。比较锁、配置、catalog、history、index、canonical成员关系与受管树的前后内容哈希，未变化。真实名称/路径/清单未写入仓库，也未发给其他模型；没有应用升级或修复用户目录。
+- 验收：强制TypeScript project rebuild、pnpm build/typecheck/lint/test/docs:check/eval:check/smoke、改动代码Prettier check、git diff --check通过；全量45文件/199测试。sandbox smoke personalHubTouched=false/paidModelCalls=0。下一项为P21-03文件差异与冻结确认计划；来源迁移、可写Web、DSH适配仍未实现，P11-05仍待Owner标签/显式付费与上传授权。
+
+### 2026-10-25 — P21-03 文件差异与版本绑定更新计划
+
+- 用户要求自主驱动规划，推进既定P21-03：update预览现在提供added/removed/modified文件差异、目录/文件类型、内容摘要与执行位变化，不输出文件正文。原hash walker增加可选metadata manifest收集，hashSkillTree原字节流保持不变，golden hash兼容测试通过。
+- 确定性planToken绑定版本化schema、canonical/state真实位置、排序后的目标集合、每项旧来源锁、实际当前树、目标来源锁（确切Git commit/treeHash/overlayOf）和目的位置/operation。core的update写入必须有planToken，CLI同时仍要求apply+yes；缺/错格式报E_CONFIG，目标或来源/内容/位置漂移报E_CONFLICT；旧token不自动追随新分支版本。check-updates不生成应用计划，install/adopt/rollback不改变原确认流程。
+- 实际apply在原state锁内重建计划、校验token，再走已有全体staging/备份/替换前复验/逆序失败恢复。新增备份前与来源锁提交前全锁语义重验，检测非协作锁修改后恢复canonical且保留外部锁。选中项以外的正常更新不使单项token失效，也不会被覆盖；全集新增成员使全集token失效。
+- Gitcommit移动但Skill树不变时action=noop、changes为空而sourceLockChanged=true；token仍变化，应用只写来源锁，不替换该canonical目录。测试核对目录dev/inode。token不是权限/签名/持久上游缓存，不抵抗同用户主动篡改；捕获运行时失败恢复不等于断电/进程崩溃自动恢复；ADR0011明确这些边界及v0.x写接口兼容变化。
+- DeepSeek Web对设计/实现摘要两轮反审查，主模型核对源码与测试采纳无关锁更新保留、commit-only目录不替换、混合noop/update恢复和锁漂移断言；未采纳不适用的overlay依赖执行、整锁字节绑定、token可解析JSON或虚构E_ROLLBACK错误码建议。没有发送私有Skill清单/内容，Gemini既有认证错误未重试。
+- 验收：47文件/209测试通过；强制tsc -b --force、pnpm build/typecheck/lint/docs:check/eval:check/smoke与代码Prettier/git diff --check通过。编译CLI验证无token/无yes拒绝、上游漂移拒绝旧token、新tokenapply和原备份rollback；完整目录hash验证失败时不改内容；原多Skill失败恢复用例适配先preview再apply后仍通过。Sandbox personalHubTouched=false/paidModelCalls=0，未对真实Skill执行升级、未提交推送。
+- 下一项P21-04显式来源迁移与失效诊断：先在合成沙箱完成迁移预览与来源锁恢复；不自动猜上游/改用户锁。管理UI和DSH adapter继续后置；P11-05仍需Owner标签/显式付费上传授权。
+
+### 2026-10-26 — P21-04 显式同内容来源迁移与失效诊断
+
+- 本轮先读HARNESS/AGENTS/STATUS/TASK_BOARD/PROGRESS并核对git status，无进行中条目，选择P21-04；保留全部既有未提交修改。CodeGraph定位managed调用与影响范围，其返回截断部分再按需读取；不引入第三方库或新服务。
+- 新增core/CLI `migrate-source <name> --source <新来源> [--ref ref]`：一次只迁移一个已有managed Skill，旧来源可以已失效；当前canonical与新来源均须等于旧锁完整treeHash，保留overlayOf。不把本地改动认作新基线，不合并内容升级；拒绝canonical/state与新来源相互包含（含根symlink指向自身）、目标缺失、名称不符和隐式批量。
+- 默认预览返回previousSource/nextSource完整锁、空changes、sourceLockChanged与planToken；复用既有字段绑定和state锁，但使用独立skill-hub-migrate-source-plan-v1合同，不能套用update token。core要求预览token，CLI仍需apply/yes；应用重新取新来源并重建计划，拒绝旧/新来源锁、Git commit、当前树或Hub位置漂移。
+- 实际迁移只写来源锁及既有CLI catalog/history/index，保留canonical目录dev/inode。写锁前复用完整树与旧锁备份，返回既有rollback可读取的backupPath；备份后重验canonical、新来源hash与当前锁。锁写失败/非协作锁编辑/备份期间来源变化时不替换canonical，保留恢复证据；同来源同版本为noop，不新增备份。rollback恢复旧来源关系，不修复外部已失效路径；原有跨包事务和崩溃恢复限制不变。
+- check-updates上游错误现在标明锁定来源path和hint，提示先核对路径/ref/访问错误，再显式预览同内容迁移；不把网络或认证故障直接判为来源已删除，不自动猜替代来源。API/PRD/ROADMAP/STATUS、统一管理手册、README与CHANGELOG同步。
+- 验收新增11项：本地来源移动后的只读诊断/迁移/rollback、noop、参数和token门禁、拒绝本地改动及内容/执行位/空目录差异、Hub位置与来源锁绑定、自引用/缺失/名称异常、GitHub↔local和同内容Git commit漂移、锁写失败/锁外部编辑/备份期间来源漂移，以及编译CLI catalog/history/index链路。Git只mock子进程边界，未联网下载Skill。初轮一个macOS临时目录真实路径断言修正为realpath；默认全量并发出现三个既有测试超时，未放宽这些超时或跳过测试，降低并发后49文件/220项全部通过：`pnpm test --maxWorkers=2`。
+- 强制`tsc -b --force --pretty false`、build/typecheck/lint、docs:check（60 Markdown无坏链接）、eval:check、smoke、改动代码Prettier与git diff --check通过。Sandbox personalHubTouched=false/paidModelCalls=0。未触碰用户Home/生产Skill/服务/凭据，未执行真实来源迁移，未提交推送；本轮无需外部模型，Gemini4未取得有效登录及模型清单证据，跳过调用且不重试或换型号。P11-05继续等待Owner，管理视图和DSH adapter本轮未推进。
+
+### 2026-10-26 — P22-01 Web 视觉与交互重构
+
+- 重设计 `apps/web/public` 的原生只读 SPA，不新增框架、依赖或 API：以暖白画布、墨黑导航和青柠强调色建立统一视觉系统，技能库增加本地索引概览、编辑式标题与三列卡片网格，详情和多端盘点同步重构。
+- 保留搜索、筛选、分页、Markdown、审计、文件/历史及盘点行为；分类改为语义按钮，补齐导航当前状态、键盘焦点、`/` 聚焦搜索与 Escape 清空，支持窄屏布局和 `prefers-reduced-motion`。既有 markdown-it CDN 增加 SHA-384 SRI 与 crossorigin。
+- ego-browser 使用真实 catalog 验证搜索快捷键、2 条 PDF 搜索结果、清空搜索、标签筛选、分页、详情、静态审计、文件读取、历史与盘点。1440px 桌面和 390px 视口（页面 clientWidth 375）三视图均无页面级横向溢出，移动端两张盘点表在自身容器滚动；项目 origin 未记录脚本异常，markdown-it 加载正常。截图保存在 `outputs/ui-redesign-*.png`。
+- 验收通过：`pnpm typecheck`、`pnpm build`、`pnpm lint`、`pnpm docs:check`（60 Markdown 无坏链接）、前端 Prettier check、49 文件/220 项测试、`pnpm smoke`（personalHubTouched=false、paidModelCalls=0）及改动范围 diff-check。未写入用户 Home 或生产 Skill，未提交推送。
+
+### 2026-10-26 — P24-01 补充主流 Agent Skill 来源
+
+P24-03目录状态澄清：用户看到DeepSeek Harness“缺失”后指出应用实际存在。只读检查确认DeepSeek Harness.app安装且有运行进程，`~/.dsh`数据根存在，仅`~/.dsh/skills`原生子目录不存在；未读凭据文件或会话内容。静态解析desktop配置（不执行自定义YAML标签）确认登记skill-hub MCP入口及Hub状态根，不能把配置登记等同于本轮模型调用验收。无证据需要改默认路径，不创建空目录或复制Skill来消除提示。Web列名改“目录状态”，标签为“目录存在/目录未找到”，增加仅检查Skill路径、不检测安装及共享目录/Hub MCP模式可无原生目录的说明；API的exists语义和扫描行为不变。原4173 ego-browser确认DSH行的新标签、提示和说明生效，15目录且无横向溢出，浏览器任务结束。lint/Prettier/docs:check/git diff --check通过；本轮仅展示文案，未新增实现镜像测试或重复全量测试，未重启服务、改用户配置或Skill。
+
+P24-02后续验收完成：用户回复“可以”明确授权仅重启4173本项目Web。先复核监听PID/命令及健康接口，再向旧Node PID 27597发送SIGTERM，并从本仓库用原有 `pnpm web` 入口启动；新监听PID 19863，运行会话86693。原地址 `/api/inventory` 返回6个配置目标和9个新增用户级来源，Qoder已在目标中故不重复。ego-browser在 `http://127.0.0.1:4173/#/inventory` 确认“Agent目录”15行，包含DeepSeek Harness/OpenCode/Gemini CLI/Copilot/Windsurf/Devin/Cline/Roo/Kilo；DeepSeek默认根缺失、0技能、用途只读来源，页面无横向溢出。未重启MCP或其他服务，未改个人配置/Skill，浏览器验收任务已结束。P24-02关闭；下方待授权文字为重启前的历史记录。
+
+后续用户纠正：新增项须在 Web“Agent 目录”内可见。P24-02 已将目标与用户级只读来源合并展示，保留用途区分；原实现只补充 sources 和构建，不代表运行实例已更新。2026-10-26实际4173 HTTP及ego-browser仍为6目标/sources空；监听PID 27597来自本仓库、11:31启动，未重载。独立临时Web预览使用当前构建与同一本地配置，只读HTTP/浏览器确认15目录（其中9个新增路径，Qoder已配置故去重），DeepSeek默认根显示缺失。截图为本地outputs/inventory-agent-directories-20261026.png；桌面无页面级横向溢出。6项相关回归、build/lint/Prettier/diff-check通过。预览服务设120秒自动close；未停止旧进程、未改个人配置/Skill。按用户所给“未经明确要求不杀进程”约束，原4173重载须明确授权；P24-02保留in_progress，原地址生效未验收。
+
+- 核对默认配置原先只有 WorkBuddy、Claude Code、Codex、共享 `.agents` 和 Cursor 目标；现有 DSH 调研不等于接入了来源。按官方文档确认 DeepSeek Harness 用户根是 `~/.dsh/skills`，支持 `DSH_HOME`；同时确认 OpenCode、Gemini CLI、Qoder、GitHub Copilot、Windsurf/Devin、Cline、Roo Code、Kilo Code 的用户级目录。路径依据集中记入 ENVIRONMENT；不调用宿主模型、不安装第三方工具。
+- 新增 core `agentSkillSources`，CLI inventory 与 MCP/Web 共用其10个内置路径及显式来源合并结果。既有配置无需改写；显式同ID覆盖路径/scope/enabled，已声明目标或来源路径不重复追加，停用映射不会被内置项绕过。缺失根仍展示缺失。环境路径支持 DSH_HOME/XDG_CONFIG_HOME；不解析 symlink 别名去重，不自动发现项目/模式/插件/系统根，普通Markdown仍不纳入Skill。
+- CLI `ingest --sources <内置ID> --dry-run` 支持显式选源预览；省略sources仍仅选择配置中的显式来源，不自动导入新路径。内置来源不加入agents，takeover/backup/sync边界保持不变。Web来源区说明内置与自定义来源及只读行为；MCP/Web按agent ID过滤来源及目标，并保留scope过滤。现有运行进程未重启；完成代码与构建不代表宿主MCP/模型已接入。
+- 新增4项core与2项集成回归，全部使用合成临时HOME：官方路径/环境覆盖、空环境值、显式覆盖与停用、已声明路径抑制、旧配置无需改写、10来源真实扫描、CLI过滤、共享摘要、缺失根、DSH平铺Markdown排除、显式导入dry-run及无参数不自动导入。比较临时树成员和配置原文，盘点/预览无新增状态文件，未修改真实用户配置或Skill。
+- 验收：typecheck/build/lint、全量53文件237测试、docs:check（最终62 Markdown无坏链接）、smoke（personalHubTouched=false、paidModelCalls=0）、改动代码Prettier与git diff --check通过。API/PRD/ROADMAP/配置模板同步；保留原有未提交修改，未做浏览器验证、提交或推送。
+
+
+### 2026-10-26 — P23-01 本地使用观测与上下文预算
+
+- 用户明确要求补充Skill使用统计与初始上下文/Token预估；先核对现有history仅为生命周期、skill_stats仅为catalog统计，新增独立P23-01，不把读取当实际执行。既有工作树修改与并行P24来源接入工作全部保留；只在相关模块追加观测及报告，不改Web视觉或用户宿主配置。
+- core新增estimateContext纯函数与usage JSONL读写/聚合，router在search/read服务边界记录，CLI/MCP/Web入口用AsyncLocalStorage区分来源。SKILL_HUB_USAGE_LOG未设置时不记录、不运行额外文本估算；显式设置绝对.jsonl路径才启用。fetch内部read只记一次，正文首段/续读/附件分列；搜索候选出现不表示选择，重复首段不是唯一任务，服务返回也不是宿主接收/实际采用/任务成功证明。
+- 事件仅保留时间、界面来源、名称、阶段、成功/错误码和返回文本大小/启发式粗估，不写query、描述、正文、附件路径或错误详情。新日志0600，拒绝最终文件symlink、外来schema与不完整末行追加，事件64KiB/文件32MiB上限。日志失败只发无私有内容stderr告警并保留原服务结果；坏行报告部分健康记录与complete=false，未记录历史保留未知，不冒充审计账本。smoke显式清空继承的个人usage路径。
+- CLI新增usage [name] --days/--origin/--log只读聚合，以及context-cost [name] --catalog/--max-chars/--context-window静态报告。静态报告分别提供name+description元数据、当前SKILL.md全文和首段，不扫描附件；复用原10MiB根内安全读取一次读完整文本。坏正文保留元数据、大小/估算为null，catalog缺失扫描回退标不完整，CLI退出3；静态盘点不计入使用次数。
+- ADR0012明确utf8-heuristic-v1的ASCII/4+非ASCII码点×1.5算法，同时报告UTF-16长度、码点数和UTF-8字节，不承诺tokenizer误差范围。逐项估算之和不是模型账单、真实启动开销或节省证明；actualModelTokens/actualCost保持null，不猜宿主窗口、缓存或实际费用。API/PRD/ARCHITECTURE/ROADMAP/STATUS、README/CHANGELOG/ENVIRONMENT与索引同步，新增USAGE_AND_CONTEXT手册；未新增runtime工具或Web报告接口。
+- 新增11项回归：字符/字节与中英混合/emoji粗估、按来源/阶段/日期过滤、未知历史与坏行、隐私schema/外来文件/symlink/并发追加；默认无写入、显式统计、fetch不重复、静态报告不自计数、日志失败不阻断读取、局部失败/大文本/无catalog，以及编译CLI与实际MCP/HTTP服务入口隔离。测试首次导入Web漏设既有NO_START开关导致EADDRINUSE和未处理退出，按项目既有测试方式补开关后通过；未操作运行服务。
+- 当前工作树（含并行既有来源接入变更）全量53文件/237项通过；强制tsc -b --force、build/typecheck/lint、docs:check（62 Markdown无坏链接）、eval:check、smoke、改动代码及新文档Prettier、git diff --check通过。smoke personalHubTouched=false/paidModelCalls=0。另对真实catalog仅执行静态只读粗估，成功保留部分结果及失效条目状态；未开启真实usage日志，私有名称/路径/正文未写入仓库或上传。未调用外部模型、未提交推送。
+
+
+### 2026-10-26 — P23-02 Web使用率与上下文预算、筛选排序
+
+- 用户要求在Web展示使用与上下文统计，并确认“使用lv”指读取次数占比的使用率，不做LV等级。新增独立“使用与预算”导航和/#/usage视图，保持技能库、详情、Agent来源盘点的既有改动。时间7/30天/全部、MCP/CLI/Web/library/全部来源、分类、关键词和观测状态均可筛选；支持使用率升降序、最近读取、正文Token粗估升降序与名称排序。
+- 新router/usage-overview复用catalog/taxonomy、readUsageReport和skillContextCost；先计算所选时间/来源内当前catalog全部成功正文首段请求分母，再做UI过滤、全局排序和分页。分类/关键词筛选不使单项占比自动变成100%，已移出catalog的日志不进入当前库分母；续读/附件不计作首段。未知次数/百分比保持null，无全库首段分母不算百分比，未知值在升降序都排后，同值按名称稳定排序。
+- Web新增固定参数GET /api/usage-overview，不允许客户端指定日志/catalog路径，非GET拒绝。日志缺失、日志部分损坏/不可读与预算局部失败分别返回明确状态，预算仍可保留健康项；不读取正文给前端、不记录盘点动作、不执行Skill。页面显示小样本提示、观测与模型采用的边界、算法非账单口径，正文字符/字节和元数据/全文/首段Token可见；默认MCP来源，Web人工浏览须显式选择。
+- 5项新增合成回归覆盖全库排序先于分页、固定分母、分类/文本/状态过滤、日期与来源、移除条目、候选/续读不充当首段、未知末尾、缺日志/坏日志/缺正文、无效参数、只读HTTP与报告不自计数。最初两处测试误将完整分页数组与单项数组匹配，改为显式limit=1验证对应分页；Web包不可直接导入core类型，改由router公共类型导出，保持依赖边界；前端URLSearchParams按既有lint配置显式用window命名空间。
+- 使用ego-browser独立TaskSpace验证合成30项库：使用率82.35%/17.65%、升降序、筛选单项后分母仍34、跨页、Token排序、未观测、空结果、小样本、缺历史、来源/时间切换；交互期间未捕获console/脚本异常。桌面1360×1100和手机375×900渲染检查通过，无页面横向溢出，宽表自身可滚动，截图仅留本地。合成QA服务已正常关闭。
+- 现有4173运行进程的新接口仍404，未停止/重启。另启动独立本机只读预览连接当前catalog，实际页面显示全库结果、未观测和局部预算失败，排序与可见字符/字节说明验证通过，结果页留给用户查看。预览禁用usage记录，进程/端口/停止标记回执留在本地临时目录；未把私有Skill名称/路径或内容写入仓库，也未开启生产日志。
+- 强制构建、build/typecheck/lint、全量54文件242项（maxWorkers=2）、docs:check（62 Markdown无坏链接）、eval:check、smoke、改动代码/相关新文档Prettier及git diff --check通过；sandbox personalHubTouched=false/paidModelCalls=0。API/PRD/ARCHITECTURE/ROADMAP/STATUS、手册/ADR与README/CHANGELOG同步。既有修改和P24条目保留，未提交推送。
+
+
+### 2026-10-26 — P25 全盘复核与公开文档交付准备
+
+- 用户明确授权全盘复核、更新项目文档/GitHub主页、提交推送PR并合入主开发分支；实时确认目标为受保护main、三组required CI与review讨论解决，不使用管理员绕过，不处理无关依赖PR。
+- 在最新origin/main创建隔离工作树与codex/project-review-readme分支，按内容hash保存原工作区74文件快照，将待发布代码/测试/文档三方整合；保留远端Vitest4.1.11/Actions更新及贡献治理。两份追加文档冲突保留双方内容；原工作区文件hash未变，运行服务未重启。
+- 复核core/router/CLI/MCP/Web/sync与来源、token、回滚、观测、评估边界。新完成矩阵明确功能实现不等于宿主/产品质量验收，保留Owner标签/付费metadata授权与WorkBuddy/Qoder模型回归缺口；修正数据模型copy只验正文、旧版hash/路径、裸sync参数和所有命令默认预览等失真描述，CLI help同步澄清默认行为。
+- 重写中英文README的定位/价值/体验/接入/功能/限制，新增原生SVG标记及本轮实际Web截图。截图为12项合成Skill和64次合成首段观测，不是个人库或真实业务用量；截图时隐藏source路径chip，原图未伪造模型效果。临时演示服务正常关闭，既有用户服务保留。
+- 更新运维、数据模型、用户场景、PRD、架构、STATUS/ROADMAP/HANDOFF/任务板、贡献检查与文档索引；历史升级/竞品/依赖审查标记为时间点记录。重复治理编号P21-01改GOV-01。公开副本对新增个人运行笔记仅保留Hub相关摘要，原完整笔记仍在原工作区，不纳入私人素材/路径/凭据/catalog/usage或outputs。
+- README临时Hub init/install预览与apply/route/read/context-cost/audit/manifest逐条复现，零模型调用。Vitest4下默认pnpm test和maxWorkers=2均54文件242项通过，build/lint/eval/docs/smoke通过；smoke personalHubTouched=false/paidModelCalls=0。提交前继续执行类型/格式/差异和发布范围检查，远端CI与合并仅以实际PR/Actions回执为准，不将本地结果写成远端绿。

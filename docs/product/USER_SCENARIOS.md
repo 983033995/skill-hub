@@ -1,106 +1,21 @@
-# 用户场景 — skill-hub
+# 用户场景 — Skill Hub
 
-| 字段 | 值 |
-|------|-----|
-| 状态 | Active |
-| 版本 | v0.1 |
-| 最后更新 | 2026-08-16 |
-| 对齐 | `docs/product/PRD.md` |
+状态：Active · v0.1.0 · 更新：2026-10-26 · 对齐：[PRD](PRD.md)
 
----
+| 场景            | 操作路径                                            | 成功标准/边界                                                  |
+| --------------- | --------------------------------------------------- | -------------------------------------------------------------- |
+| 盘点散落的Skill | inventory，按sources/scope筛选；Web多端盘点         | 展示配置目标和内置来源的目录/用途；缺目录不等于Agent未安装     |
+| 新建统一库      | 新状态根init → install预览 → 显式apply/yes          | 创建受管副本及来源锁；不自动写Agent目录                        |
+| 迁入已有Skill   | 选择明确来源 → ingest --dry-run → 处理冲突后导入    | 增量保留catalog；未绑定上游不伪造受管来源                      |
+| Agent按任务加载 | MCP search → read → files/read附件                  | 精确名直接read，按页读取；正文不是执行授权                     |
+| 检查/升级Skill  | check-updates → update预览 → token+apply+yes        | 单项失败可观察，实际写入严格；漂移拒绝旧计划，本地修改受保护   |
+| 来源移动        | migrate-source name --source新位置预览 → token确认  | 新来源与安装基线同内容；保留旧锁备份，不升级内容               |
+| 回滚受管版本    | rollback name --from精确backupPath预览/确认         | 当前树和备份锁一致；旧来源路径不会被重新创建                   |
+| 查看使用率      | Web使用与预算，选时间/来源、分类/关键词，使用率排序 | 先全库筛排再分页，筛选不改分母；无历史显示未知                 |
+| 估计上下文预算  | context-cost或Web预算                               | 元数据/全文/首段分列，字符/字节和粗估Token明确，不冒充账单     |
+| 做静态风险检查  | audit单项/全库                                      | 发现项与不完整状态可见；不执行Skill，不保证绝对安全            |
+| 兼容原生目录    | backup → sync --dry-run → 明确确认apply → verify    | 限定目标、备份有效、冲突不静默覆盖；不以目录一致证明上下文减少 |
+| 导出兼容清单    | manifest预览 → --out/--apply/--yes                  | name/description及Hub使用提示，不含正文；不是默认全库注入      |
+| 可选语义决策    | 显式选择Jev及允许query/metadata传输                 | 返回概率与建议；失败回退，不把建议当执行权限                   |
 
-## S1 — 多端盘点
-
-**触发**：用户：“我到底装了哪些 skill？各端差在哪？”  
-**步骤**：
-
-1. 运行 `skill-hub inventory`；需要项目/工作区 Skill 时先配置 `sources`
-2. 查看各端数量、同名交集、仅单端存在列表  
-3. 按需用 `--scope`/`--sources` 过滤并导出矩阵（md/json）
-
-**成功**：无需手工 `ls` 多个目录；冲突命名清晰。
-
----
-
-## S2 — 建立真源
-
-**触发**：决定“以后只维护一份”。  
-**步骤**：
-
-1. `skill-hub backup`  
-2. `skill-hub init`  
-3. `skill-hub ingest --sources ... --prefer <dir>`
-4. 阅读 conflict 报告并人工处理  
-
-**成功**：`~/.skill-hub/skills` 为唯一正文库；冲突有清单。
-
----
-
-## S3 — 分发到 Claude / Codex / Cursor / WorkBuddy
-
-**触发**：真源已稳定。  
-**步骤**：
-
-1. `skill-hub sync --dry-run`  
-2. 确认计划  
-3. `skill-hub sync --apply`  
-4. `skill-hub verify`  
-
-**成功**：各端同名 skill 指向同一 inode/target；Agent 能发现 skill。
-
----
-
-## S4 — 任务智能选型
-
-**触发**：“帮我做 PDF 合并 / 前端落地页 CRO / 视频分镜”  
-**步骤**：
-
-1. `skill-hub route "<任务>" --top-k 5`；项目 Skill 用 `--scope project` 显式选择
-2. 将结果注入 Agent（手动或 hook/MCP）  
-3. Agent 仅基于候选加载正文  
-
-**成功**：相关 skill 出现在 Top-K；无关 skill 不占上下文。
-
----
-
-## S5 — 日常新增 skill
-
-**触发**：从市场或自建安装新 skill。  
-**步骤**：
-
-1. 将 skill 放入 hub（或 `ingest` 单目录）  
-2. `skill-hub index`  
-3. `skill-hub sync --apply`  
-
-**成功**：全端同时可见；route 能命中。
-
----
-
-## S6 — 误操作回滚
-
-**触发**：sync 后发现错误链接。  
-**步骤**：
-
-1. 定位最近 backup  
-2. 按 OPERATIONS 文档还原  
-3. `verify`  
-
-**成功**：恢复到备份点，无数据净损失。
-
----
-
-## S7 — 场景化工作（P1）
-
-**触发**：当天只做视频相关任务。  
-**步骤**：
-
-1. 启用 `profiles/video.yaml`  
-2. route 仅在 profile 子集中检索  
-
-**成功**：候选更准、列表更短。
-
-## S8 — Skill 与知识库边界
-
-**约束**：skill-hub 只管理本地 Skill 目录中的 `SKILL.md` 及其配套文件。普通 Markdown、Obsidian 笔记和本地知识库不参与 inventory、ingest、route 或 sync。
-
-**成功**：Skill plane 可以独立演进，不会把知识库内容误导入 Canonical catalog。
+默认先使用Hub MCP，不需要全量sync。涉及用户目录写入、真实服务/客户端配置和付费模型时，按当前任务显式授权范围执行。[运维与恢复](../ops/OPERATIONS_AND_RISKS.md)提供实际支持的命令与恢复边界。

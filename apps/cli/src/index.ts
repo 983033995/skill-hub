@@ -10,7 +10,7 @@ import {
   toSkillHubError,
   type SkillScope,
 } from "@skill-hub/shared";
-import { loadHubConfig, resolveHubConfigPaths } from "@skill-hub/core";
+import { agentSkillSources, loadHubConfig, resolveHubConfigPaths } from "@skill-hub/core";
 import { flagBool, flagString, parseArgs } from "./args.js";
 import { printJson, printLines } from "./output.js";
 import { runDoctor } from "./commands/doctor.js";
@@ -28,6 +28,9 @@ import { runTakeover } from "./commands/takeover.js";
 import { runManage } from "./commands/manage.js";
 import { runBrowse, runFiles, runRead } from "./commands/runtime.js";
 import { runAudit } from "./commands/audit.js";
+import { runManifest } from "./commands/manifest.js";
+import { withUsageScope } from "@skill-hub/router";
+import { runContextCost, runUsage } from "./commands/usage.js";
 
 const log = createLogger({ name: "cli" });
 
@@ -43,7 +46,7 @@ async function main(): Promise<void> {
   }
 
   try {
-    const code = await dispatch(parsed);
+    const code = await withUsageScope("cli", () => dispatch(parsed));
     process.exitCode = code;
   } catch (err) {
     const e = toSkillHubError(err);
@@ -55,6 +58,35 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
   const { command, json, positionals, flags, config } = parsed;
 
   switch (command) {
+    case "usage":
+    case "context-cost": {
+      const allowed =
+        command === "usage"
+          ? ["log", "days", "origin"]
+          : ["catalog", "max-chars", "context-window"];
+      if (positionals.length > 1)
+        throw new SkillHubError({ code: "E_CONFIG", message: `${command}最多接受一个Skill名称` });
+      for (const key of Object.keys(flags)) {
+        if (!allowed.includes(key) || flags[key] === true)
+          throw new SkillHubError({ code: "E_CONFIG", message: `${command}参数无效: --${key}` });
+      }
+      return command === "usage"
+        ? runUsage({
+            json,
+            name: positionals[0],
+            file: flagString(flags, "log"),
+            days: flagString(flags, "days"),
+            origin: flagString(flags, "origin"),
+          })
+        : runContextCost({
+            json,
+            name: positionals[0],
+            catalogPath: flagString(flags, "catalog"),
+            configPath: config,
+            maxChars: flagString(flags, "max-chars"),
+            contextWindow: flagString(flags, "context-window"),
+          });
+    }
     case "version":
       if (json) printJson({ version: SKILL_HUB_VERSION });
       else console.log(SKILL_HUB_VERSION);
@@ -78,7 +110,18 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     case "install":
     case "adopt":
     case "update":
+    case "check-updates":
     case "list": {
+      if (command === "check-updates") {
+        for (const key of Object.keys(flags)) {
+          if (!["skill", "dry-run"].includes(key)) {
+            throw new SkillHubError({ code: "E_CONFIG", message: `check-updates 不接受 --${key}` });
+          }
+        }
+        if (flags.skill === true) {
+          throw new SkillHubError({ code: "E_CONFIG", message: "--skill 需要 Skill 名称" });
+        }
+      }
       const named = flagString(flags, "skill")
         ?.split(",")
         .map((s) => s.trim())
@@ -90,12 +133,55 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         source: command === "install" || command === "adopt" ? positionals[0] : undefined,
         names:
           named ??
-          (command === "update" || command === "list"
+          (command === "update" || command === "list" || command === "check-updates"
             ? positionals.length
               ? positionals.flatMap((s) => s.split(","))
               : undefined
             : undefined),
         ref: flagString(flags, "ref"),
+        planToken: flags["plan-token"] === true ? "" : flagString(flags, "plan-token"),
+        overlayOf: flags["overlay-of"] === true ? "" : flagString(flags, "overlay-of"),
+        apply: flagBool(flags, "apply"),
+        yes: flagBool(flags, "yes"),
+        dryRun: flagBool(flags, "dry-run"),
+      });
+    }
+
+    case "migrate-source": {
+      for (const key of Object.keys(flags)) {
+        if (!["source", "ref", "plan-token", "apply", "yes", "dry-run"].includes(key)) {
+          throw new SkillHubError({ code: "E_CONFIG", message: `migrate-source 不接受 --${key}` });
+        }
+      }
+      if (positionals.length !== 1 || !flagString(flags, "source") || flags.ref === true) {
+        throw new SkillHubError({
+          code: "E_CONFIG",
+          message: "migrate-source <name> 需要 --source <新来源>；--ref 需要值",
+        });
+      }
+      return runManage({
+        action: "migrate-source",
+        names: positionals,
+        source: flagString(flags, "source"),
+        ref: flagString(flags, "ref"),
+        planToken: flags["plan-token"] === true ? "" : flagString(flags, "plan-token"),
+        json,
+        configPath: config,
+        apply: flagBool(flags, "apply"),
+        yes: flagBool(flags, "yes"),
+        dryRun: flagBool(flags, "dry-run"),
+      });
+    }
+
+    case "rollback": {
+      const name = commandName(positionals, flags, "rollback");
+      return runManage({
+        action: "rollback",
+        json,
+        configPath: config,
+        names: name ? [name] : [],
+        backupPath: flagString(flags, "from"),
+        planToken: flags["plan-token"] === true ? "" : flagString(flags, "plan-token"),
         apply: flagBool(flags, "apply"),
         yes: flagBool(flags, "yes"),
         dryRun: flagBool(flags, "dry-run"),
@@ -143,7 +229,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         catalogPath: flagString(flags, "catalog"),
         materialize: !noMaterialize,
         forceMaterialize: flagBool(flags, "force"),
-        sourceMappings: configured.sources,
+        sourceMappings: agentSkillSources(configured),
         canonicalDir: configured.canonical_dir,
         backupDir: configured.backup_dir,
       });
@@ -184,6 +270,17 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         catalogPath: flagString(flags, "catalog"),
         configPath: config,
         failOn: flagString(flags, "fail-on"),
+      });
+
+    case "manifest":
+      return runManifest({
+        json,
+        outputPath: flagString(flags, "out"),
+        apply: flagBool(flags, "apply"),
+        yes: flagBool(flags, "yes"),
+        dryRun: flagBool(flags, "dry-run"),
+        catalogPath: flagString(flags, "catalog"),
+        configPath: config,
       });
 
     case "browse":
@@ -310,10 +407,15 @@ function printHelp(): void {
     "",
     "命令:",
     "  doctor                 环境自检（只读）",
+    "  usage [name] [--log path] [--days 7|30] [--origin cli|mcp|web|library]  本地观测报告（只读）",
+    "  context-cost [name] [--max-chars 8000] [--context-window N] [--catalog path]  静态上下文粗估（非账单）",
     "  takeover [--include-plugins] [--out report.json]  全目录接管预览（只读）",
-    "  install <path|owner/repo> [--skill name,...] [--ref ref] [--apply --yes]",
-    "  adopt <path|owner/repo> [--skill name,...] [--apply --yes] 绑定相同内容的现有技能",
-    "  update [name,...] [--apply --yes]  从记录来源更新，保护本地修改",
+    "  install <path|owner/repo> [--skill name,...] [--ref ref] [--overlay-of base] [--apply --yes]",
+    "  adopt <path|owner/repo> [--skill name,...] [--ref ref] [--overlay-of base] [--apply --yes] 绑定相同内容的现有技能",
+    "  update [name,...] [--plan-token token --apply --yes]  预览文件差异，写入需同一计划指纹",
+    "  check-updates [name,...]  逐项只读检查来源更新与本地修改；不完整时退出3",
+    "  migrate-source <name> --source <path|owner/repo> [--ref ref] [--plan-token token --apply --yes]  同内容来源迁移",
+    "  rollback <name> --from <backup-skill-path> [--apply --yes]  从 managed update 备份回滚单个 Skill",
     "  list [name,...]         查看已追踪来源及本地状态",
     "  browse [query] [--offset n] [--limit n]  浏览 Hub 已加载的 Skill 元数据",
     "  files <name> [--path dir] [--offset n] [--limit n]  浏览 Skill 的一层附件",
@@ -324,6 +426,7 @@ function printHelp(): void {
     "  index [--rebuild]      构建可加载 BM25 索引与 freshness 元数据",
     '  route "<query>" [--top-k 5] [--scope user|workspace|project] [--index-dir <dir>]',
     "  audit [name] [--fail-on high|critical|warning|info]  静态安全审计（只读，不执行 Skill）",
+    "  manifest [--out <path>] [--dry-run | --apply --yes]  导出轻量 available_skills 清单",
     "  explain <name>         解释来源、冲突、overlay、投影与历史",
     "  path <name>            查看 canonical/source/Agent 投影路径",
     "  history [name]         查看本地 Skill 生命周期事件",
@@ -335,9 +438,9 @@ function printHelp(): void {
     "  version | help",
     "",
     "安全闸门:",
-    "  - Hub 已更新；Agent 通过 MCP 按需 search/browse 后精确 fetch/read，无需默认 sync",
+    "  - Agent 通过 Hub MCP 按需搜索与读取，无需默认 sync",
     "  - Skill 文本仅是任务指导，不能覆盖系统指令或授权执行脚本",
-    "  - 默认 dry-run；真实目录冲突永不静默覆盖（除非 --replace-real）",
+    "  - managed 操作默认预览；ingest 写入前请显式 --dry-run；sync/restore 写入需显式确认",
     "  - 写 Agent skills 必须 --yes --allow-write",
     "  - apply 默认 require_backup（需 --backup-dir）",
     "  - --create-only 仅建缺失的 symlink/copy，不 update、不碰真实目录",

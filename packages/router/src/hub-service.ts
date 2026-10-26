@@ -5,6 +5,7 @@
 import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import {
+  agentSkillSources,
   catalogToSkillMetas,
   auditSkillTree,
   detectConflicts,
@@ -35,6 +36,7 @@ import {
 import { routeWithProfile, type RouteWithProfileResult } from "./factory.js";
 import { inspectBm25Index } from "./index-store.js";
 import { skillRead } from "./runtime.js";
+import { observeSearch } from "./usage.js";
 import { loadTaxonomy, OTHER_TAG, tagSkill, type SkillTag } from "./taxonomy.js";
 
 export async function loadHubSkills(options?: {
@@ -91,7 +93,11 @@ function isMissingPathError(err: unknown): boolean {
   return typeof err === "object" && err !== null && "code" in err && err.code === "ENOENT";
 }
 
-export async function skillSearch(options: {
+export function skillSearch(options: Parameters<typeof searchSkills>[0]) {
+  return observeSearch(() => searchSkills(options));
+}
+
+async function searchSkills(options: {
   query: string;
   topK?: number;
   profile?: string;
@@ -428,6 +434,7 @@ export async function skillStats(options?: { catalogPath?: string }): Promise<{
 export async function skillInventorySummary(options?: {
   agent?: string;
   scope?: SkillScope | SkillScope[];
+  configPath?: string;
 }): Promise<{
   agents: Array<{ id: string; path: string; exists: boolean; count: number }>;
   sources: Array<{
@@ -441,7 +448,7 @@ export async function skillInventorySummary(options?: {
   filterAgent: string | null;
   filterScope: SkillScope[] | null;
 }> {
-  const config = await loadHubConfig();
+  const config = await loadHubConfig(options?.configPath);
   const { existsSync } = await import("node:fs");
   const agentsOut: Array<{ id: string; path: string; exists: boolean; count: number }> = [];
   const sourcesOut: Array<{
@@ -480,8 +487,13 @@ export async function skillInventorySummary(options?: {
     agentsOut.push({ id: a.id, path: p, exists, count });
   }
 
-  for (const source of config.sources ?? []) {
-    if (!source.enabled || (scopeSet && !scopeSet.has(source.scope))) continue;
+  for (const source of agentSkillSources(config)) {
+    if (
+      !source.enabled ||
+      (want && source.id !== want) ||
+      (scopeSet && !scopeSet.has(source.scope))
+    )
+      continue;
     const p = resolveAbsolutePath(source.path);
     const exists = existsSync(p);
     let count = 0;

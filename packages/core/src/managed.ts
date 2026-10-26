@@ -6,7 +6,7 @@
  */
 
 import { execFile } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   cp,
   lstat,
@@ -27,16 +27,28 @@ import { promisify } from "node:util";
 import { SkillHubError, normalizeSkillName, resolveAbsolutePath } from "@skill-hub/shared";
 import { parseSkillMd } from "./parse.js";
 import { scanSkills } from "./scan.js";
-import { hashSkillTree } from "./tree.js";
+import { hashSkillTree, inspectSkillTree, type SkillTreeEntry } from "./tree.js";
 import type { SkillMeta } from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
 export const MANAGED_LOCK_FILENAME = "managed-lock.json";
+const MANAGED_ROLLBACK_FILENAME = "managed-rollback.json";
 
 type ManagedSourceType = "local" | "github";
 
-export type ManagedAction = "install" | "update" | "list" | "adopt";
+export type ManagedAction =
+  "install" | "update" | "list" | "check-updates" | "adopt" | "rollback" | "migrate-source";
+
+/** Diagnostics for read-only observations; failures never imply an empty/unchanged source. */
+export interface ManagedReadIssue {
+  phase: "scan" | "local" | "upstream" | "lock" | "cleanup";
+  code: string;
+  message: string;
+  name?: string;
+  path?: string;
+  hint?: string;
+}
 
 /** 单 Skill 的可复现来源。Git commit 只在 github 来源上有值。 */
 export interface ManagedSourceLock {
@@ -51,6 +63,8 @@ export interface ManagedSourceLock {
   commit?: string;
   /** 相对于 path 或仓库根的 skill 目录。单 skill 根为 `.`。 */
   subpath: string;
+  /** 可选的逻辑基底 Skill 名；仅表示 provenance 关系，不执行合并。 */
+  overlayOf?: string;
   /** SKILL.md、附件、空目录和执行位的完整树 hash。 */
   treeHash: string;
 }
@@ -62,21 +76,42 @@ export interface ManagedLockFile {
 
 export interface ManageSkillsOptions {
   action: ManagedAction;
-  /** install/adopt 必需；本地路径、GitHub HTTPS URL 或 owner/repo。 */
+  /** install/adopt/migrate-source 必需；本地路径、GitHub HTTPS URL 或 owner/repo。 */
   source?: string;
   /** 为空时选择来源扫描到的全部 skill。 */
   names?: string[];
   /** 仅 GitHub 来源可用；update 不允许改写已锁定的 ref。 */
   ref?: string;
+  /** install/adopt 单个 fork 时记录逻辑基底；不做自动合并。 */
+  overlayOf?: string;
+  /** rollback 必需：本机 managed backups/<batch>/<skill> 中的精确备份目录。 */
+  backupPath?: string;
+  /** Required for update/migrate-source writes; obtained from a matching dry-run preview. */
+  planToken?: string;
   canonicalDir: string;
   stateDir: string;
   /** 默认 true；dry-run 不写 hub、state 或 Agent 目录。 */
   dryRun?: boolean;
 }
 
+export interface ManagedFileChange {
+  path: string;
+  change: "added" | "removed" | "modified";
+  before?: SkillTreeEntry;
+  after?: SkillTreeEntry;
+}
+
 export interface ManageSkillItem {
   name: string;
-  action: "install" | "update" | "adopt" | "noop" | "list";
+  action:
+    | "install"
+    | "update"
+    | "adopt"
+    | "noop"
+    | "list"
+    | "check-updates"
+    | "rollback"
+    | "migrate-source";
   status:
     | "planned"
     | "applied"
@@ -91,6 +126,22 @@ export interface ManageSkillItem {
   currentTreeHash?: string;
   backupPath?: string;
   message?: string;
+  localStatus?: "clean" | "modified" | "missing" | "blocked" | "unmanaged";
+  upstreamStatus?: "changed" | "unchanged" | "unknown";
+  /** Compared with the installed source-lock baseline, independently of local edits. */
+  updateAvailable?: boolean | null;
+  /** Current observation blocks an update; false is not an apply authorization/plan. */
+  applyBlocked?: boolean;
+  lockedTreeHash?: string;
+  currentRevision?: string | null;
+  upstreamRevision?: string | null;
+  checkedAt?: string;
+  errors?: ManagedReadIssue[];
+  changes?: ManagedFileChange[];
+  /** Metadata-only source changes may have an empty file Diff. */
+  sourceLockChanged?: boolean;
+  previousSource?: ManagedSourceLock;
+  nextSource?: ManagedSourceLock;
 }
 
 export interface ManageSkillsResult {
@@ -100,6 +151,10 @@ export interface ManageSkillsResult {
   lockPath: string;
   items: ManageSkillItem[];
   skills: SkillMeta[];
+  /** Present on list/check-updates. Local modifications are known states, not read errors. */
+  complete?: boolean;
+  issues?: ManagedReadIssue[];
+  planToken?: string;
 }
 
 interface SourceSkill {
@@ -118,7 +173,9 @@ interface PlannedSkill {
   source: SourceSkill;
   destination: string;
   existing?: ExistingSkill;
-  operation: "install" | "update" | "adopt" | "noop";
+  operation: "install" | "update" | "adopt" | "noop" | "migrate-source";
+  previousLock?: ManagedSourceLock;
+  changes?: ManagedFileChange[];
 }
 
 interface GitCheckout {
@@ -539,38 +596,62 @@ async function checkoutGithub(url: string, requestedRef: string | undefined): Pr
   }
 }
 
+function attachOverlayOf(skills: SourceSkill[], overlayOf: string | undefined): void {
+  if (overlayOf === undefined) return;
+  if (skills.length !== 1) {
+    throw configError("--overlay-of 一次只接受一个 Skill；请使用 --skill 精确选择", {
+      count: skills.length,
+    });
+  }
+  const skill = skills[0]!;
+  if (skill.name === overlayOf) {
+    throw configError("overlayOf 不能指向 Skill 自身", { name: skill.name });
+  }
+  skill.lock = { ...skill.lock, overlayOf };
+}
+
 async function sourcesForInstall(
   source: string,
   ref: string | undefined,
   requested: string[] | undefined,
+  overlayOf?: string,
 ): Promise<{ skills: SourceSkill[]; cleanup: () => Promise<void> }> {
+  if (overlayOf !== undefined) {
+    if (!overlayOf.trim() || assertSafeSkillName(overlayOf) !== overlayOf) {
+      throw configError("overlayOf 必须是规范化的 Skill 名称", { overlayOf });
+    }
+  }
   const parsed = parseSourceInput(source);
   if (parsed.type === "local") {
     if (ref !== undefined) throw configError("本地来源不能使用 Git ref");
     const sourceRoot = await rootForRead(parsed.path!, "source");
     if (!sourceRoot.exists) throw pathError("本地来源不存在", { path: sourceRoot.path });
+    const skills = await scanSourceRoot(
+      sourceRoot.path,
+      { type: "local", path: sourceRoot.path },
+      requested,
+    );
+    attachOverlayOf(skills, overlayOf);
     return {
-      skills: await scanSourceRoot(
-        sourceRoot.path,
-        { type: "local", path: sourceRoot.path },
-        requested,
-      ),
+      skills,
       cleanup: async () => undefined,
     };
   }
   const checkout = await checkoutGithub(parsed.url!, ref);
   try {
+    const skills = await scanSourceRoot(
+      checkout.root,
+      {
+        type: "github",
+        url: checkout.url,
+        ref: checkout.ref,
+        commit: checkout.commit,
+      },
+      requested,
+    );
+    attachOverlayOf(skills, overlayOf);
     return {
-      skills: await scanSourceRoot(
-        checkout.root,
-        {
-          type: "github",
-          url: checkout.url,
-          ref: checkout.ref,
-          commit: checkout.commit,
-        },
-        requested,
-      ),
+      skills,
       cleanup: checkout.cleanup,
     };
   } catch (error) {
@@ -595,6 +676,19 @@ function validateManagedSourceLock(name: string, value: unknown): ManagedSourceL
     throw configError("managed lock 缺少 subpath", { name });
   }
   assertSafeSubpath(candidate.subpath);
+  let overlayOf: string | undefined;
+  if (candidate.overlayOf !== undefined) {
+    if (typeof candidate.overlayOf !== "string") {
+      throw configError("managed lock overlayOf 无效", { name });
+    }
+    overlayOf = assertSafeSkillName(candidate.overlayOf);
+    if (overlayOf !== candidate.overlayOf || overlayOf === name) {
+      throw configError("managed lock overlayOf 必须是不同的规范化 Skill 名称", {
+        name,
+        overlayOf: candidate.overlayOf,
+      });
+    }
+  }
   if (
     typeof candidate.treeHash !== "string" ||
     !/^sha256:[0-9a-f]{64}$/i.test(candidate.treeHash)
@@ -617,6 +711,7 @@ function validateManagedSourceLock(name: string, value: unknown): ManagedSourceL
       type: "local",
       path: resolveAbsolutePath(candidate.path),
       subpath: candidate.subpath,
+      overlayOf,
       treeHash: candidate.treeHash,
     };
   }
@@ -639,36 +734,40 @@ function validateManagedSourceLock(name: string, value: unknown): ManagedSourceL
           throw configError("GitHub managed lock commit 无效", { name });
         })(),
     subpath: candidate.subpath,
+    overlayOf,
     treeHash: candidate.treeHash,
   };
 }
 
 async function readManagedLock(stateRoot: string): Promise<ManagedLockFile> {
   const lockPath = safeChild(stateRoot, MANAGED_LOCK_FILENAME, "managed lock");
-  let raw: string;
   try {
-    const info = await lstat(lockPath);
-    if (info.isSymbolicLink() || !info.isFile()) {
-      throw configError("managed lock 不能是 symlink 或目录", { path: lockPath });
-    }
-    raw = await readFile(lockPath, "utf8");
+    return await readManagedLockFile(lockPath, "managed lock");
   } catch (error) {
     if (isErrno(error, "ENOENT")) return { version: 1, skills: {} };
     throw error;
   }
+}
+
+async function readManagedLockFile(filePath: string, label: string): Promise<ManagedLockFile> {
+  const info = await lstat(filePath);
+  if (info.isSymbolicLink() || !info.isFile()) {
+    throw configError(`${label} 不能是 symlink 或目录`, { path: filePath });
+  }
+  const raw = await readFile(filePath, "utf8");
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
     throw new SkillHubError({
       code: "E_CONFIG",
-      message: "managed lock 不是有效 JSON",
-      details: { path: lockPath },
+      message: `${label} 不是有效 JSON`,
+      details: { path: filePath },
       cause: error,
     });
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw configError("managed lock 必须是对象", { path: lockPath });
+    throw configError(`${label} 必须是对象`, { path: filePath });
   }
   const root = parsed as { version?: unknown; skills?: unknown };
   if (
@@ -677,7 +776,7 @@ async function readManagedLock(stateRoot: string): Promise<ManagedLockFile> {
     typeof root.skills !== "object" ||
     Array.isArray(root.skills)
   ) {
-    throw configError("managed lock schema 无效", { path: lockPath });
+    throw configError(`${label} schema 无效`, { path: filePath });
   }
   const skills: Record<string, ManagedSourceLock> = {};
   for (const [name, source] of Object.entries(root.skills as Record<string, unknown>)) {
@@ -752,7 +851,8 @@ function sameSource(left: ManagedSourceLock, right: ManagedSourceLock): boolean 
     left.path === right.path &&
     left.url === right.url &&
     left.ref === right.ref &&
-    left.subpath === right.subpath
+    left.subpath === right.subpath &&
+    left.overlayOf === right.overlayOf
   );
 }
 
@@ -768,6 +868,7 @@ function provenanceFor(source: ManagedSourceLock): SkillMeta["provenance"] {
     sourceRef: source.url ?? source.path,
     revision: source.commit,
     status: "active",
+    overlayOf: source.overlayOf,
   };
 }
 
@@ -783,6 +884,7 @@ function canonicalMeta(meta: SkillMeta, destination: string, source: ManagedSour
 async function sourceForLockedSkill(
   name: string,
   lock: ManagedSourceLock,
+  resolveCheckout: typeof checkoutGithub = checkoutGithub,
 ): Promise<{ source: SourceSkill; cleanup: () => Promise<void> }> {
   if (lock.type === "local") {
     const sourceRoot = await rootForRead(lock.path!, "managed lock path");
@@ -794,6 +896,7 @@ async function sourceForLockedSkill(
       type: "local",
       path: sourceRoot.path,
       subpath: lock.subpath,
+      overlayOf: lock.overlayOf,
     });
     if (source.name !== name) {
       throw conflictError("managed lock 来源 skill 名称已变化", {
@@ -804,7 +907,7 @@ async function sourceForLockedSkill(
     }
     return { source, cleanup: async () => undefined };
   }
-  const checkout = await checkoutGithub(lock.url!, lock.ref);
+  const checkout = await resolveCheckout(lock.url!, lock.ref);
   try {
     const skillPath = pathFromSubpath(checkout.root, lock.subpath);
     assertInside(await realpath(checkout.root), await realpath(skillPath), "Git 来源 skill");
@@ -814,6 +917,7 @@ async function sourceForLockedSkill(
       ref: checkout.ref,
       commit: checkout.commit,
       subpath: lock.subpath,
+      overlayOf: lock.overlayOf,
     });
     if (source.name !== name) {
       throw conflictError("managed lock Git 来源 skill 名称已变化", {
@@ -914,6 +1018,148 @@ async function planAdopt(
   return plan;
 }
 
+function treeChanges(before: SkillTreeEntry[], after: SkillTreeEntry[]): ManagedFileChange[] {
+  const previous = new Map(
+    before.filter((entry) => entry.path).map((entry) => [entry.path, entry]),
+  );
+  const next = new Map(after.filter((entry) => entry.path).map((entry) => [entry.path, entry]));
+  return [...new Set([...previous.keys(), ...next.keys()])].sort().flatMap((filePath) => {
+    const a = previous.get(filePath);
+    const b = next.get(filePath);
+    if (a?.kind === b?.kind && a?.contentHash === b?.contentHash && a?.executable === b?.executable)
+      return [];
+    return [
+      {
+        path: filePath,
+        change: !a ? "added" : !b ? "removed" : "modified",
+        before: a,
+        after: b,
+      } satisfies ManagedFileChange,
+    ];
+  });
+}
+
+function sourceIdentity(source: ManagedSourceLock) {
+  return {
+    type: source.type,
+    path: source.path ?? null,
+    url: source.url ?? null,
+    ref: source.ref ?? null,
+    commit: source.commit ?? null,
+    subpath: source.subpath,
+    treeHash: source.treeHash,
+    overlayOf: source.overlayOf ?? null,
+  };
+}
+
+function lockIdentity(lock: ManagedLockFile): string {
+  return JSON.stringify(
+    Object.keys(lock.skills)
+      .sort()
+      .map((name) => [name, sourceIdentity(lock.skills[name]!)]),
+  );
+}
+
+async function recheckManagedLock(stateRoot: string, expected: ManagedLockFile): Promise<void> {
+  if (lockIdentity(await readManagedLock(stateRoot)) !== lockIdentity(expected)) {
+    throw conflictError("来源锁在更新期间变化，拒绝覆盖；请重新预览", {});
+  }
+}
+
+function updatePlanToken(
+  plan: PlannedSkill[],
+  currentLock: ManagedLockFile,
+  canonicalRoot: string,
+  stateRoot: string,
+  action: "update" | "migrate-source" = "update",
+): string {
+  const payload = {
+    contract: action === "update" ? "skill-hub-update-plan-v1" : "skill-hub-migrate-source-plan-v1",
+    canonicalRoot,
+    stateRoot,
+    items: [...plan]
+      .sort((a, b) => (a.source.name < b.source.name ? -1 : a.source.name > b.source.name ? 1 : 0))
+      .map((entry) => ({
+        name: entry.source.name,
+        destination: entry.destination,
+        operation: entry.operation,
+        previousSource: sourceIdentity(currentLock.skills[entry.source.name]!),
+        currentTreeHash: entry.existing!.treeHash,
+        nextSource: sourceIdentity(entry.source.lock),
+      })),
+  };
+  return `sha256:${createHash("sha256").update(JSON.stringify(payload)).digest("hex")}`;
+}
+
+/** Rebind provenance only: neither local edits nor a newer upstream may become the baseline. */
+async function planSourceMigration(
+  options: ManageSkillsOptions,
+  lock: ManagedLockFile,
+  canonicalRoot: string,
+  stateRoot: string,
+): Promise<{ plan: PlannedSkill[]; cleanup: () => Promise<void> }> {
+  const name = normalizeRequestedNames(options.names)![0]!;
+  const previousLock = lock.skills[name];
+  if (!previousLock) {
+    throw new SkillHubError({
+      code: "E_NOT_FOUND",
+      message: `没有此 Skill 的 managed 来源锁: ${name}`,
+    });
+  }
+  const existing = await inspectCanonicalSkill(canonicalRoot, name);
+  if (!existing) throw pathError("来源迁移要求 canonical Skill 存在", { name });
+  if (existing.treeHash !== previousLock.treeHash) {
+    throw conflictError("检测到 canonical 本地修改，拒绝来源迁移", { name });
+  }
+  const resolved = await sourcesForInstall(
+    options.source!,
+    options.ref,
+    [name],
+    previousLock.overlayOf,
+  );
+  try {
+    const source = resolved.skills[0]!;
+    const sourcePath = await realpath(source.skillPath);
+    if (
+      isInside(canonicalRoot, sourcePath) ||
+      isInside(stateRoot, sourcePath) ||
+      isInside(sourcePath, canonicalRoot) ||
+      isInside(sourcePath, stateRoot)
+    ) {
+      throw pathError("迁移来源必须独立于 canonical/state 目录", { name });
+    }
+    if (source.lock.treeHash !== previousLock.treeHash) {
+      throw conflictError("新来源内容与已安装锁基线不同；来源迁移不执行内容升级", {
+        name,
+        expectedTreeHash: previousLock.treeHash,
+        actualTreeHash: source.lock.treeHash,
+      });
+    }
+    return {
+      plan: [
+        {
+          source,
+          destination: existing.path,
+          existing,
+          previousLock,
+          changes: [],
+          operation: sameManagedSourceLock(previousLock, source.lock) ? "noop" : "migrate-source",
+        },
+      ],
+      cleanup: resolved.cleanup,
+    };
+  } catch (error) {
+    await resolved.cleanup();
+    throw error;
+  }
+}
+
+function checkUpdatePlanToken(expected: string | undefined, actual: string): void {
+  if (expected !== undefined && expected !== actual) {
+    throw conflictError("计划已变化，请重新预览并确认", {});
+  }
+}
+
 async function planUpdate(
   names: string[] | undefined,
   lock: ManagedLockFile,
@@ -952,11 +1198,23 @@ async function planUpdate(
       }
       const resolved = await sourceForLockedSkill(name, sourceLock);
       cleanups.push(resolved.cleanup);
+      const [before, after] = await Promise.all([
+        inspectSkillTree(existing.path),
+        inspectSkillTree(resolved.source.skillPath),
+      ]);
+      if (
+        before.treeHash !== existing.treeHash ||
+        after.treeHash !== resolved.source.lock.treeHash
+      ) {
+        throw conflictError("Skill 内容在生成更新计划期间变化，请重新预览", { name });
+      }
       plan.push({
         source: resolved.source,
         destination: safeChild(canonicalRoot, name, "canonical skill"),
         existing,
         operation: existing.treeHash === resolved.source.lock.treeHash ? "noop" : "update",
+        previousLock: sourceLock,
+        changes: treeChanges(before.entries, after.entries),
       });
     }
     return {
@@ -969,6 +1227,155 @@ async function planUpdate(
     await Promise.allSettled(cleanups.map((cleanup) => cleanup()));
     throw error;
   }
+}
+
+async function planRollback(
+  name: string,
+  backupPath: string,
+  lock: ManagedLockFile,
+  canonicalRoot: string,
+  stateRoot: string,
+): Promise<PlannedSkill> {
+  const currentLock = lock.skills[name];
+  if (!currentLock) {
+    throw new SkillHubError({
+      code: "E_NOT_FOUND",
+      message: `没有此 Skill 的 managed 来源锁: ${name}`,
+      details: { name },
+    });
+  }
+
+  const existing = await inspectCanonicalSkill(canonicalRoot, name);
+  if (!existing) {
+    throw new SkillHubError({
+      code: "E_NOT_FOUND",
+      message: "managed lock 对应的 canonical Skill 不存在",
+      details: { name },
+    });
+  }
+  if (existing.treeHash !== currentLock.treeHash) {
+    throw conflictError("检测到 canonical Skill 全目录本地修改，拒绝 rollback", {
+      name,
+      expectedTreeHash: currentLock.treeHash,
+      actualTreeHash: existing.treeHash,
+    });
+  }
+
+  const backupsRoot = safeChild(stateRoot, "backups", "managed backups");
+  let backupsInfo;
+  try {
+    backupsInfo = await lstat(backupsRoot);
+  } catch (error) {
+    if (isErrno(error, "ENOENT")) {
+      throw new SkillHubError({
+        code: "E_NOT_FOUND",
+        message: "managed backups 目录不存在",
+        details: { path: backupsRoot },
+      });
+    }
+    throw error;
+  }
+  if (backupsInfo.isSymbolicLink() || !backupsInfo.isDirectory()) {
+    throw pathError("managed backups 不能是 symlink 或普通文件", { path: backupsRoot });
+  }
+  const backupsReal = await realpath(backupsRoot);
+  const requestedBackup = resolveManagedPath(backupPath, "rollback backupPath");
+  const relative = path.relative(backupsReal, requestedBackup);
+  const parts = relative.split(path.sep);
+  if (
+    path.isAbsolute(relative) ||
+    parts.length !== 2 ||
+    parts[0] === ".." ||
+    parts[0] === "" ||
+    parts[1] !== name
+  ) {
+    throw pathError("rollback 仅接受 managed backups/<batch>/<skill> 中的精确 Skill 备份路径", {
+      path: requestedBackup,
+      name,
+    });
+  }
+  const batchId = parts[0]!;
+  if (!/^\d{17}-\d+-[0-9a-f]{12}$/.test(batchId)) {
+    throw pathError("rollback 备份批次名称无效", { batchId });
+  }
+  const batchDir = safeChild(backupsReal, batchId, "managed rollback batch");
+  const batchInfo = await lstat(batchDir);
+  if (batchInfo.isSymbolicLink() || !batchInfo.isDirectory()) {
+    throw pathError("managed rollback batch 不能是 symlink 或普通文件", { path: batchDir });
+  }
+  const batchReal = await realpath(batchDir);
+  if (batchReal !== batchDir || path.dirname(batchReal) !== backupsReal) {
+    throw pathError("managed rollback batch 必须是 backups 下的直接子目录", {
+      path: batchDir,
+    });
+  }
+
+  const selectedBackup = safeChild(batchReal, name, "managed rollback skill");
+  const backupInfo = await lstat(selectedBackup);
+  if (backupInfo.isSymbolicLink() || !backupInfo.isDirectory()) {
+    throw pathError("managed rollback Skill 备份必须是普通目录", { path: selectedBackup });
+  }
+  const backupReal = await realpath(selectedBackup);
+  if (backupReal !== selectedBackup || path.dirname(backupReal) !== batchReal) {
+    throw pathError("managed rollback Skill 备份必须是批次内的直接子目录", {
+      path: selectedBackup,
+    });
+  }
+
+  const previousLock = (await readManagedRollbackLock(batchReal, batchId)).skills[name];
+  if (!previousLock) {
+    throw new SkillHubError({
+      code: "E_NOT_FOUND",
+      message: `回滚快照中没有 Skill: ${name}`,
+      details: { name, path: batchReal },
+    });
+  }
+  const backupHash = await hashSkillTree(backupReal);
+  if (backupHash !== previousLock.treeHash) {
+    throw new SkillHubError({
+      code: "E_BACKUP",
+      message: "回滚备份与其来源锁 treeHash 不一致",
+      details: { name, expected: previousLock.treeHash, actual: backupHash },
+    });
+  }
+
+  const skillFile = await findSkillFile(backupReal);
+  const meta = await parseSkillMd(skillFile, {
+    source: sourceLabel(previousLock),
+    provenance: provenanceFor(previousLock),
+    fallbackName: name,
+  });
+  if (meta.name !== name) {
+    throw conflictError("回滚备份中的 Skill 名称与目标不一致", {
+      expected: name,
+      actual: meta.name,
+      path: backupReal,
+    });
+  }
+
+  return {
+    source: { name, skillPath: backupReal, meta, lock: previousLock },
+    destination: safeChild(canonicalRoot, name, "canonical skill"),
+    existing,
+    operation:
+      existing.treeHash === previousLock.treeHash &&
+      sameManagedSourceLock(currentLock, previousLock)
+        ? "noop"
+        : "update",
+  };
+}
+
+function sameManagedSourceLock(left: ManagedSourceLock, right: ManagedSourceLock): boolean {
+  return (
+    left.type === right.type &&
+    left.path === right.path &&
+    left.url === right.url &&
+    left.ref === right.ref &&
+    left.commit === right.commit &&
+    left.subpath === right.subpath &&
+    left.overlayOf === right.overlayOf &&
+    left.treeHash === right.treeHash
+  );
 }
 
 async function copySkillTree(source: string, destination: string): Promise<void> {
@@ -989,8 +1396,12 @@ function batchName(): string {
 async function backupExistingSkills(
   stateRoot: string,
   plan: PlannedSkill[],
+  currentLock: ManagedLockFile,
 ): Promise<{ backupDir?: string; backupPaths: Map<string, string> }> {
-  const updates = plan.filter((entry) => entry.operation === "update" && entry.existing);
+  const updates = plan.filter(
+    (entry) =>
+      (entry.operation === "update" || entry.operation === "migrate-source") && entry.existing,
+  );
   if (updates.length === 0) return { backupPaths: new Map() };
   const backupBase = safeChild(stateRoot, "backups", "managed backups");
   await ensureDirectDirectory(backupBase, "managed backups");
@@ -1014,7 +1425,103 @@ async function backupExistingSkills(
     }
     backupPaths.set(entry.source.name, backupPath);
   }
+  const rollbackSkills: Record<string, ManagedSourceLock> = {};
+  for (const entry of updates) {
+    const previousLock = currentLock.skills[entry.source.name];
+    if (!previousLock || previousLock.treeHash !== entry.existing!.treeHash) {
+      throw new SkillHubError({
+        code: "E_CONFLICT",
+        message: "managed lock 与待备份 Skill 不一致，拒绝建立回滚点",
+        details: { name: entry.source.name },
+      });
+    }
+    rollbackSkills[entry.source.name] = previousLock;
+  }
+  await writeManagedRollbackManifest(backupDir, rollbackSkills);
   return { backupDir, backupPaths };
+}
+
+async function writeManagedRollbackManifest(
+  backupDir: string,
+  skills: Record<string, ManagedSourceLock>,
+): Promise<void> {
+  const target = safeChild(backupDir, MANAGED_ROLLBACK_FILENAME, "managed rollback manifest");
+  const temporary = safeChild(
+    backupDir,
+    `.managed-rollback-${randomBytes(8).toString("hex")}.tmp`,
+    "managed rollback manifest 临时文件",
+  );
+  try {
+    await writeFile(
+      temporary,
+      `${JSON.stringify({ version: 1, batchId: path.basename(backupDir), skills }, null, 2)}\n`,
+      { encoding: "utf8", mode: 0o600, flag: "wx" },
+    );
+    await rename(temporary, target);
+  } finally {
+    await unlinkIfPresent(temporary);
+  }
+}
+
+async function readManagedRollbackLock(
+  batchDir: string,
+  batchId: string,
+): Promise<ManagedLockFile> {
+  const manifestPath = safeChild(batchDir, MANAGED_ROLLBACK_FILENAME, "managed rollback manifest");
+  let info;
+  try {
+    info = await lstat(manifestPath);
+  } catch (error) {
+    if (isErrno(error, "ENOENT")) {
+      throw new SkillHubError({
+        code: "E_NOT_FOUND",
+        message: "该旧备份没有受支持的来源锁快照，不能安全回滚",
+        details: { path: manifestPath },
+        cause: error,
+      });
+    }
+    throw error;
+  }
+  if (info.isSymbolicLink() || !info.isFile()) {
+    throw configError("managed rollback manifest 不能是 symlink 或目录", {
+      path: manifestPath,
+    });
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await readFile(manifestPath, "utf8")) as unknown;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new SkillHubError({
+        code: "E_CONFIG",
+        message: "managed rollback manifest 不是有效 JSON",
+        details: { path: manifestPath },
+        cause: error,
+      });
+    }
+    throw error;
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw configError("managed rollback manifest 必须是对象", { path: manifestPath });
+  }
+  const manifest = raw as { version?: unknown; batchId?: unknown; skills?: unknown };
+  if (
+    manifest.version !== 1 ||
+    manifest.batchId !== batchId ||
+    !manifest.skills ||
+    typeof manifest.skills !== "object" ||
+    Array.isArray(manifest.skills)
+  ) {
+    throw configError("managed rollback manifest schema 或批次无效", {
+      path: manifestPath,
+      expectedBatchId: batchId,
+    });
+  }
+  const skills: Record<string, ManagedSourceLock> = {};
+  for (const [name, source] of Object.entries(manifest.skills as Record<string, unknown>)) {
+    skills[name] = validateManagedSourceLock(name, source);
+  }
+  return { version: 1, skills };
 }
 
 async function removeGeneratedDirectory(root: string | undefined, marker: string): Promise<void> {
@@ -1141,7 +1648,9 @@ async function applyPlan(
   };
   try {
     await recheckPlanBeforeReplace(canonicalRoot, plan);
-    backups = await backupExistingSkills(stateRoot, plan);
+    if (action === "update" || action === "migrate-source")
+      await recheckManagedLock(stateRoot, currentLock);
+    backups = await backupExistingSkills(stateRoot, plan, currentLock);
     const rollbackRoot = transactionRoot
       ? safeChild(transactionRoot, "rollback", "managed rollback staging")
       : undefined;
@@ -1168,6 +1677,16 @@ async function applyPlan(
       applied.push({ entry, previousPath });
       await rename(stagedPath, entry.destination);
     }
+    if (action === "migrate-source") {
+      await recheckPlanBeforeReplace(canonicalRoot, plan);
+      for (const entry of plan) {
+        if ((await hashSkillTree(entry.source.skillPath)) !== entry.source.lock.treeHash) {
+          throw conflictError("新来源在迁移期间变化，请重新预览", { name: entry.source.name });
+        }
+      }
+    }
+    if (action === "update" || action === "migrate-source")
+      await recheckManagedLock(stateRoot, currentLock);
     await writeManagedLock(stateRoot, nextLock);
     committed = true;
     const result = await resultFromPlan(
@@ -1233,14 +1752,155 @@ async function resultFromPlan(
     lockPath,
     items: plan.map((entry) => ({
       name: entry.source.name,
-      action: entry.operation,
+      action: action === "rollback" ? "rollback" : entry.operation,
       status: dryRun ? "planned" : entry.operation === "noop" ? "unchanged" : "applied",
       source: sourceLabel(entry.source.lock),
       sourceTreeHash: entry.source.lock.treeHash,
       currentTreeHash: entry.existing?.treeHash,
       backupPath: backupPaths.get(entry.source.name),
+      ...(action === "migrate-source"
+        ? { previousSource: entry.previousLock, nextSource: entry.source.lock }
+        : {}),
+      ...(entry.changes !== undefined
+        ? {
+            changes: entry.changes,
+            currentRevision: entry.previousLock?.commit ?? null,
+            upstreamRevision: entry.source.lock.commit ?? null,
+            sourceLockChanged:
+              JSON.stringify(sourceIdentity(entry.previousLock!)) !==
+              JSON.stringify(sourceIdentity(entry.source.lock)),
+          }
+        : {}),
     })),
     skills: skills.sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+function readIssue(
+  error: unknown,
+  phase: ManagedReadIssue["phase"],
+  name?: string,
+  filePath?: string,
+): ManagedReadIssue {
+  return {
+    phase,
+    code: error instanceof SkillHubError ? error.code : "E_PATH",
+    message: asErrorMessage(error),
+    ...(name ? { name } : {}),
+    ...(filePath ? { path: filePath } : {}),
+  };
+}
+
+async function checkManagedUpdates(
+  canonical: { path: string; exists: boolean },
+  stateRoot: string,
+  lock: ManagedLockFile,
+  requested: string[] | undefined,
+): Promise<ManageSkillsResult> {
+  const items: ManageSkillItem[] = [];
+  const issues: ManagedReadIssue[] = [];
+  // One immutable checkout per repository/ref within this invocation, including failed attempts.
+  // No persistent cache and no writes to Hub state are required.
+  const checkouts = new Map<string, Promise<GitCheckout>>();
+  const resolveCheckout: typeof checkoutGithub = async (url, ref) => {
+    const key = JSON.stringify([url, ref ?? "HEAD"]);
+    let pending = checkouts.get(key);
+    if (!pending) {
+      pending = checkoutGithub(url, ref);
+      checkouts.set(key, pending);
+    }
+    const checkout = await pending;
+    return { ...checkout, cleanup: async () => undefined };
+  };
+  const names = requested ?? Object.keys(lock.skills).sort((a, b) => a.localeCompare(b));
+  try {
+    for (const name of names) {
+      const source = lock.skills[name];
+      const item: ManageSkillItem = {
+        name,
+        action: "check-updates",
+        status: "blocked",
+        localStatus: "blocked",
+        upstreamStatus: "unknown",
+        updateAvailable: null,
+        errors: [],
+      };
+      if (!source) {
+        item.status = "unmanaged";
+        item.localStatus = "unmanaged";
+        item.errors!.push(
+          readIssue(
+            new SkillHubError({
+              code: "E_NOT_FOUND",
+              message: "没有此 Skill 的 managed 来源锁",
+            }),
+            "lock",
+            name,
+          ),
+        );
+      } else {
+        item.source = sourceLabel(source);
+        item.lockedTreeHash = source.treeHash;
+        item.currentRevision = source.commit ?? null;
+        item.upstreamRevision = null;
+        try {
+          const current = canonical.exists
+            ? await inspectCanonicalSkill(canonical.path, name)
+            : undefined;
+          if (!current) {
+            item.status = "missing";
+            item.localStatus = "missing";
+            item.errors!.push(readIssue(pathError("canonical Skill 不存在", {}), "local", name));
+          } else {
+            item.currentTreeHash = current.treeHash;
+            item.localStatus = current.treeHash === source.treeHash ? "clean" : "modified";
+            item.status = item.localStatus === "clean" ? "present" : "modified";
+          }
+        } catch (error) {
+          item.errors!.push(readIssue(error, "local", name));
+        }
+        // A local edit/missing target must not hide whether the recorded upstream changed.
+        try {
+          const resolved = await sourceForLockedSkill(name, source, resolveCheckout);
+          try {
+            item.sourceTreeHash = resolved.source.lock.treeHash;
+            item.upstreamRevision = resolved.source.lock.commit ?? null;
+            item.updateAvailable = source.treeHash !== resolved.source.lock.treeHash;
+            item.upstreamStatus = item.updateAvailable ? "changed" : "unchanged";
+          } finally {
+            await resolved.cleanup();
+          }
+        } catch (error) {
+          item.errors!.push({
+            ...readIssue(error, "upstream", name, sourceLabel(source)),
+            hint: "核对锁定来源路径/ref与访问错误；若来源已移动，显式使用 migrate-source <name> --source <新来源> 预览。新来源须与安装基线同内容；不要手改锁或自动猜上游。",
+          });
+        }
+      }
+      item.checkedAt = new Date().toISOString();
+      item.applyBlocked = item.localStatus !== "clean" || item.upstreamStatus === "unknown";
+      issues.push(...item.errors!);
+      items.push(item);
+    }
+  } finally {
+    for (const outcome of await Promise.allSettled(checkouts.values())) {
+      if (outcome.status !== "fulfilled") continue; // Fetch error already belongs to each affected item.
+      try {
+        await outcome.value.cleanup();
+      } catch (error) {
+        issues.push(readIssue(error, "cleanup"));
+      }
+    }
+  }
+  return {
+    action: "check-updates",
+    dryRun: true,
+    canonicalDir: canonical.path,
+    lockPath: safeChild(stateRoot, MANAGED_LOCK_FILENAME, "managed lock"),
+    items,
+    skills: [],
+    complete: issues.length === 0,
+    issues,
   };
 }
 
@@ -1251,55 +1911,52 @@ async function listManagedSkills(
   requested: string[] | undefined,
 ): Promise<ManageSkillsResult> {
   const lockPath = safeChild(stateRoot, MANAGED_LOCK_FILENAME, "managed lock");
+  const issues: ManagedReadIssue[] = [];
   if (!canonical.exists) {
-    if (requested?.length) {
-      throw new SkillHubError({ code: "E_NOT_FOUND", message: "canonical 目录不存在" });
-    }
+    issues.push(
+      readIssue(pathError("canonical 目录不存在", {}), "scan", undefined, canonical.path),
+    );
     return {
       action: "list",
       dryRun: true,
       canonicalDir: canonical.path,
       lockPath,
-      items: Object.keys(lock.skills)
+      items: (requested ?? Object.keys(lock.skills))
         .sort((a, b) => a.localeCompare(b))
         .map((name) => ({
           name,
           action: "list",
           status: "missing",
-          source: sourceLabel(lock.skills[name]!),
+          source: lock.skills[name] ? sourceLabel(lock.skills[name]!) : undefined,
         })),
       skills: [],
+      complete: false,
+      issues,
     };
   }
-  const issues: Array<{ path: string; message: string }> = [];
-  const scanned = await scanSkills(canonical.path, { onIssue: (issue) => issues.push(issue) });
-  if (issues.length > 0) {
-    throw pathError("canonical 扫描不完整", { path: canonical.path, issues });
+  let scanned: SkillMeta[] = [];
+  try {
+    scanned = await scanSkills(canonical.path, {
+      onIssue: (issue) => issues.push({ ...issue, phase: "scan", code: "E_PATH" }),
+    });
+  } catch (error) {
+    issues.push(readIssue(error, "scan", undefined, canonical.path));
   }
-  const selected =
-    !scanned.length && !requested?.length ? [] : selectNames(scanned, requested, canonical.path);
+  const selected = requested ? scanned.filter((meta) => requested.includes(meta.name)) : scanned;
   const skills: SkillMeta[] = [];
-  for (const meta of selected) {
-    const actualPath = await realpath(meta.path);
-    assertInside(canonical.path, actualPath, "canonical skill");
-    const info = await lstat(meta.path);
-    if (info.isSymbolicLink()) {
-      throw pathError("canonical Skill 不能是 symlink", { name: meta.name, path: meta.path });
-    }
-    const managed = lock.skills[meta.name];
-    skills.push(managed ? canonicalMeta(meta, actualPath, managed) : { ...meta, path: actualPath });
-  }
-  const present = new Set(skills.map((skill) => skill.name));
-  const missing = Object.keys(lock.skills)
-    .filter((name) => !present.has(name) && (!requested || requested.includes(name)))
-    .sort((a, b) => a.localeCompare(b));
   const presentItems: ManageSkillItem[] = [];
-  for (const skill of skills) {
-    const source = lock.skills[skill.name];
+  for (const meta of selected) {
+    const source = lock.skills[meta.name];
     try {
-      const currentTreeHash = await hashSkillTree(skill.path);
+      const actualPath = await realpath(meta.path);
+      assertInside(canonical.path, actualPath, "canonical skill");
+      if ((await lstat(meta.path)).isSymbolicLink()) {
+        throw pathError("canonical Skill 不能是 symlink", { name: meta.name, path: meta.path });
+      }
+      const currentTreeHash = await hashSkillTree(actualPath);
+      skills.push(source ? canonicalMeta(meta, actualPath, source) : { ...meta, path: actualPath });
       presentItems.push({
-        name: skill.name,
+        name: meta.name,
         action: "list",
         status: !source
           ? "unmanaged"
@@ -1311,76 +1968,195 @@ async function listManagedSkills(
         sourceTreeHash: source?.treeHash,
       });
     } catch (error) {
+      const issue = readIssue(error, "local", meta.name, meta.path);
+      issues.push(issue);
       presentItems.push({
-        name: skill.name,
+        name: meta.name,
         action: "list",
         status: "blocked",
         message: asErrorMessage(error),
+        errors: [issue],
       });
     }
+  }
+  const observed = new Set(presentItems.map((item) => item.name));
+  for (const name of requested ?? Object.keys(lock.skills)) {
+    if (observed.has(name)) continue;
+    const target = safeChild(canonical.path, name, "canonical skill");
+    const relevant = issues.filter(
+      (issue) =>
+        issue.phase === "scan" &&
+        issue.path !== undefined &&
+        (issue.path === target ||
+          issue.path.startsWith(target + path.sep) ||
+          target.startsWith(issue.path + path.sep)),
+    );
+    const issue =
+      relevant[0] ??
+      readIssue(
+        new SkillHubError({ code: "E_NOT_FOUND", message: "canonical Skill 未发现" }),
+        "local",
+        name,
+        target,
+      );
+    if (!relevant.length) issues.push(issue);
+    presentItems.push({
+      name,
+      action: "list",
+      status: relevant.length ? "blocked" : "missing",
+      source: lock.skills[name] ? sourceLabel(lock.skills[name]!) : undefined,
+      message: issue.message,
+      errors: relevant.length ? relevant : [issue],
+    });
   }
   return {
     action: "list",
     dryRun: true,
     canonicalDir: canonical.path,
     lockPath,
-    items: [
-      ...presentItems,
-      ...missing.map((name) => ({
-        name,
-        action: "list" as const,
-        status: "missing" as const,
-        source: sourceLabel(lock.skills[name]!),
-      })),
-    ].sort((a, b) => a.name.localeCompare(b.name)),
+    items: presentItems.sort((a, b) => a.name.localeCompare(b.name)),
     skills: skills.sort((a, b) => a.name.localeCompare(b.name)),
+    complete: issues.length === 0,
+    issues,
   };
 }
 
 /**
- * 安装、更新、列出或显式 adopt canonical Skill。
+ * 安装、更新、列出、回滚或显式 adopt canonical Skill。
  *
  * `install`/`adopt` 要求 source；`update` 只使用 state lock 中的来源，
  * 以避免调用方在同名 skill 上偷偷更换来源。
  */
 export async function manageSkills(options: ManageSkillsOptions): Promise<ManageSkillsResult> {
-  if (!["install", "update", "list", "adopt"].includes(options.action)) {
+  if (
+    !["install", "update", "list", "check-updates", "adopt", "rollback", "migrate-source"].includes(
+      options.action,
+    )
+  ) {
     throw configError("未知 managed action", { action: options.action });
   }
   const requested = normalizeRequestedNames(options.names);
   const dryRun = options.dryRun ?? true;
+  if (
+    options.planToken !== undefined &&
+    (!["update", "migrate-source"].includes(options.action) ||
+      !/^sha256:[0-9a-f]{64}$/.test(options.planToken))
+  ) {
+    throw configError("planToken 仅适用于 update/migrate-source，且必须是预览返回的 sha256 指纹");
+  }
+  if (
+    ["update", "migrate-source"].includes(options.action) &&
+    !dryRun &&
+    options.planToken === undefined
+  ) {
+    throw configError(`${options.action} 写入需要预览的 planToken；先预览，再传 --plan-token`);
+  }
+  if (
+    options.action === "check-updates" &&
+    (!dryRun ||
+      options.source !== undefined ||
+      options.ref !== undefined ||
+      options.backupPath !== undefined)
+  ) {
+    throw configError("check-updates 只读，且只能使用 managed lock 中的来源与 ref");
+  }
   const canonical = await rootForRead(options.canonicalDir, "canonicalDir");
   const state = await rootForRead(options.stateDir, "stateDir");
+
+  if (
+    options.overlayOf !== undefined &&
+    options.action !== "install" &&
+    options.action !== "adopt"
+  ) {
+    throw configError("--overlay-of 仅适用于 install/adopt");
+  }
 
   if (options.action === "list") {
     const lock = await readManagedLock(state.path);
     return listManagedSkills(canonical, state.path, lock, requested);
   }
+  if (options.action === "check-updates") {
+    const lock = await readManagedLock(state.path);
+    return checkManagedUpdates(canonical, state.path, lock, requested);
+  }
   if (options.action === "update" && (options.source !== undefined || options.ref !== undefined)) {
     throw configError("update 只能使用 managed lock 中的来源与 ref");
+  }
+  if (
+    options.action === "migrate-source" &&
+    (!options.source || requested?.length !== 1 || options.backupPath !== undefined)
+  ) {
+    throw configError("migrate-source 需要一个 managed Skill 名称和显式 source，不接受 backupPath");
   }
   if ((options.action === "install" || options.action === "adopt") && !options.source) {
     throw configError(`${options.action} 需要 source`);
   }
+  if (options.action === "rollback") {
+    if (options.source !== undefined || options.ref !== undefined) {
+      throw configError("rollback 不接受 source 或 ref");
+    }
+    if (requested?.length !== 1) {
+      throw configError("rollback 一次只接受一个 Skill name");
+    }
+    if (!options.backupPath) {
+      throw configError("rollback 需要 --from <managed backup skill path>");
+    }
+  }
 
   if (dryRun) {
     const lock = await readManagedLock(state.path);
-    if (options.action === "update") {
+    if (options.action === "update" || options.action === "migrate-source") {
       if (!canonical.exists) throw pathError("canonicalDir 不存在", { path: canonical.path });
-      const update = await planUpdate(requested, lock, canonical.path);
+      const update =
+        options.action === "update"
+          ? await planUpdate(requested, lock, canonical.path)
+          : await planSourceMigration(options, lock, canonical.path, state.path);
       try {
-        return resultFromPlan(
-          "update",
-          true,
-          canonical.path,
-          safeChild(state.path, MANAGED_LOCK_FILENAME, "managed lock"),
+        const planToken = updatePlanToken(
           update.plan,
+          lock,
+          canonical.path,
+          state.path,
+          options.action,
         );
+        checkUpdatePlanToken(options.planToken, planToken);
+        return {
+          ...(await resultFromPlan(
+            options.action,
+            true,
+            canonical.path,
+            safeChild(state.path, MANAGED_LOCK_FILENAME, "managed lock"),
+            update.plan,
+          )),
+          planToken,
+        };
       } finally {
         await update.cleanup();
       }
     }
-    const sources = await sourcesForInstall(options.source!, options.ref, requested);
+    if (options.action === "rollback") {
+      if (!canonical.exists) throw pathError("canonicalDir 不存在", { path: canonical.path });
+      const plan = await planRollback(
+        requested![0]!,
+        options.backupPath!,
+        lock,
+        canonical.path,
+        state.path,
+      );
+      return resultFromPlan(
+        "rollback",
+        true,
+        canonical.path,
+        safeChild(state.path, MANAGED_LOCK_FILENAME, "managed lock"),
+        [plan],
+      );
+    }
+    const sources = await sourcesForInstall(
+      options.source!,
+      options.ref,
+      requested,
+      options.overlayOf,
+    );
     try {
       const plan =
         options.action === "install"
@@ -1401,15 +2177,44 @@ export async function manageSkills(options: ManageSkillsOptions): Promise<Manage
   return withStateLock(options.stateDir, async (stateRoot) => {
     const canonicalRoot = await ensureRoot(options.canonicalDir, "canonicalDir");
     const lock = await readManagedLock(stateRoot);
-    if (options.action === "update") {
-      const update = await planUpdate(requested, lock, canonicalRoot);
+    if (options.action === "update" || options.action === "migrate-source") {
+      const update =
+        options.action === "update"
+          ? await planUpdate(requested, lock, canonicalRoot)
+          : await planSourceMigration(options, lock, canonicalRoot, stateRoot);
       try {
-        return await applyPlan("update", update.plan, lock, canonicalRoot, stateRoot, false);
+        const planToken = updatePlanToken(
+          update.plan,
+          lock,
+          canonicalRoot,
+          stateRoot,
+          options.action,
+        );
+        checkUpdatePlanToken(options.planToken, planToken);
+        return {
+          ...(await applyPlan(options.action, update.plan, lock, canonicalRoot, stateRoot, false)),
+          planToken,
+        };
       } finally {
         await update.cleanup();
       }
     }
-    const sources = await sourcesForInstall(options.source!, options.ref, requested);
+    if (options.action === "rollback") {
+      const plan = await planRollback(
+        requested![0]!,
+        options.backupPath!,
+        lock,
+        canonicalRoot,
+        stateRoot,
+      );
+      return await applyPlan("rollback", [plan], lock, canonicalRoot, stateRoot, false);
+    }
+    const sources = await sourcesForInstall(
+      options.source!,
+      options.ref,
+      requested,
+      options.overlayOf,
+    );
     try {
       const plan =
         options.action === "install"

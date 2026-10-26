@@ -3,46 +3,107 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>skill-hub · 本地技能库</title>
+    <meta name="theme-color" content="#191a16" />
+    <title>skill-hub · 本地技能工作台</title>
     <link rel="stylesheet" href="/styles.css" />
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d9488'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3ES%3C/text%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23d7f75b'/%3E%3Cpath d='M8 8h6v6H8zm10 0h6v6h-6zM8 18h6v6H8zm10 0h6v6h-6z' fill='%23191a16'/%3E%3C/svg%3E"
     />
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"
+      integrity="sha384-wLhprpjsmjc/XYIcF+LpMxd8yS1gss6jhevOp6F6zhiIoFK6AmHtm4bGKtehTani"
+      crossorigin="anonymous"
     ></script>
     <script defer src="/app.js"></script>
   </head>
   <body>
+    <a class="skip-link" href="#app">跳到主要内容</a>
     <header class="topbar">
-      <a class="brand" href="#/">
-        <span class="brand-mark">S</span>
-        <span class="brand-text">skill-hub <em>本地技能库</em></span>
-      </a>
-      <nav class="topnav">
-        <a href="#/" data-nav="skills">技能库</a>
-        <a href="#/inventory" data-nav="inventory">多端盘点</a>
-      </nav>
-      <div class="search-wrap">
-        <input
-          id="global-search"
-          type="search"
-          placeholder="用自然语言检索技能，如：修 PDF、生成视频…"
-          autocomplete="off"
-        />
+      <div class="topbar-inner">
+        <a class="brand" href="#/" aria-label="skill-hub 首页">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 28 28">
+              <path d="M7 7h5v5H7zm9 0h5v5h-5zM7 16h5v5H7zm9 0h5v5h-5z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <span class="brand-name">skill-hub<span>.</span></span>
+            <span class="brand-subtitle">LOCAL WORKSPACE</span>
+          </span>
+        </a>
+        <nav class="topnav" aria-label="主导航">
+          <a href="#/" data-nav="skills">
+            <svg
+              class="icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              aria-hidden="true"
+            >
+              <rect x="3" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" />
+              <rect x="14" y="14" width="7" height="7" rx="1.5" />
+            </svg>
+            <span>技能库</span>
+          </a>
+          <a href="#/usage" data-nav="usage"><span>使用与预算</span></a>
+          <a href="#/inventory" data-nav="inventory">
+            <svg
+              class="icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              aria-hidden="true"
+            >
+              <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+              <path d="m3 12 9 5 9-5M3 16l9 5 9-5" />
+            </svg>
+            <span>多端盘点</span>
+          </a>
+        </nav>
+        <div class="search-wrap">
+          <svg
+            class="search-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-4-4" />
+          </svg>
+          <label class="sr-only" for="global-search">搜索技能或描述</label>
+          <input
+            id="global-search"
+            type="search"
+            placeholder="搜索技能或描述…"
+            autocomplete="off"
+            aria-keyshortcuts="/"
+          />
+          <kbd class="search-shortcut" aria-hidden="true">/</kbd>
+        </div>
+        <span class="local-badge"><span aria-hidden="true"></span>本地只读</span>
       </div>
     </header>
 
     <div class="statsbar" id="statsbar" hidden></div>
 
-    <main id="app" class="container">
-      <div class="loading">加载中…</div>
+    <main id="app" class="container" tabindex="-1">
+      <div class="loading" role="status">加载中…</div>
     </main>
 
     <footer class="footer">
-      <span id="footer-meta">skill-hub web · 只读视图 · 127.0.0.1</span>
+      <div class="footer-inner">
+        <a class="footer-brand" href="#/">skill-hub<span>.</span></a>
+        <span id="footer-meta">只读视图 · 127.0.0.1 · 数据留在本机</span>
+        <span class="footer-note">BUILT FOR AGENTS · MADE FOR FOCUS</span>
+      </div>
     </footer>
   </body>
 </html>

@@ -1,7 +1,7 @@
 # HARNESS — skill-hub 工程规范
 
 > **状态**：Active · MIT source distribution v0.1.0
-> **生效日期**：2026-08-10 · 公开文档更新：2026-10-09
+> **生效日期**：2026-08-10 · 公开文档更新：2026-10-26
 > **适用范围**：本仓库全部文档、代码、脚本、配置与交付物
 > **维护原则**：规范变更须走 ADR；文档与实现不一致时，以可运行代码 + 最新 ADR 为准，并在 24h 内回写本文件
 
@@ -56,7 +56,7 @@ skill-hub/
 ├── HARNESS.md                 # 工程规范（本文件）
 ├── AGENTS.md                  # Agent 工作指引
 ├── README.md
-├── package.json               # monorepo 根（后续落地）
+├── package.json               # monorepo 根
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json
 ├── .gitignore
@@ -79,7 +79,7 @@ skill-hub/
 │   └── fixtures/              # 样例 SKILL.md
 ├── docs/                      # 全部工程文档
 ├── outputs/                   # 本地运行产物（默认 gitignore）
-└── .github/workflows/         # CI（后续）
+└── .github/workflows/         # CI
 ```
 
 ### 3.1 目录职责
@@ -200,7 +200,9 @@ PR 描述必须包含：
 | 集成测 | 触及路径/同步/索引的 PR 跑 integration |
 | 文档 | 行为变更同步 PRD/API/ROADMAP/PROGRESS，`pnpm docs:check`通过 |
 | 可复现 | `pnpm smoke`通过；只用合成fixture、临时Hub和沙箱Agent目标 |
+| 评估数据 | 评估集进入 CI 前通过 `pnpm eval:check` 结构与静态隐私模式校验；draft 标签不作为质量门禁 |
 | 破坏性变更 | 有 ADR + 迁移说明 |
+| Managed update 确认 | update写入需预览planToken与显式apply/yes；变更拒绝旧计划，见ADR 0011 |
 | 安全 | 不提交密钥；用户目录操作有 dry-run |
 | 路由/同步 | 对 fixture skill 可演示最小闭环 |
 
@@ -281,6 +283,8 @@ PR 描述必须包含：
 ---
 
 ## 9. 配置与秘密
+
+本地使用观测是显式可选能力：只有设置`SKILL_HUB_USAGE_LOG`的进程才追加独立usage元数据，不改Skill/catalog/history，不记录query/正文或上传；默认读操作不写usage。上下文估算必须标明启发式与真实模型计费的区别，见[ADR0012](docs/adr/0012-local-usage-context-estimates.md)。
 
 | 允许进仓 | 禁止进仓 |
 |----------|----------|

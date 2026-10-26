@@ -25,8 +25,12 @@ import {
   skillSearch,
   skillStats,
   skillTagSummary,
+  skillUsageOverview,
+  type UsageSort,
+  type UsageOrigin,
 } from "@skill-hub/router";
 import { SKILL_HUB_VERSION, SkillHubError, type SkillScope } from "@skill-hub/shared";
+import { withUsageScope } from "@skill-hub/router";
 
 const DEFAULT_PORT = 4173;
 const DEFAULT_HOST = "127.0.0.1";
@@ -129,6 +133,35 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
 
   if (url.pathname === "/api/health") {
     sendJson(res, 200, { ok: true, name: "skill-hub-web", version: SKILL_HUB_VERSION });
+    return;
+  }
+
+  if (url.pathname === "/api/usage-overview") {
+    for (const key of url.searchParams.keys()) {
+      if (
+        !["days", "origin", "q", "tag", "status", "sort", "offset", "limit", "max_chars"].includes(
+          key,
+        )
+      ) {
+        throw new SkillHubError({ code: "E_CONFIG", message: `usage-overview参数无效: ${key}` });
+      }
+    }
+    sendJson(
+      res,
+      200,
+      await skillUsageOverview({
+        days: intParam(url, "days", { min: 1, max: 3650 }),
+        origin: stringParam(url, "origin") as UsageOrigin | undefined,
+        query: stringParam(url, "q"),
+        tag: stringParam(url, "tag"),
+        status: stringParam(url, "status") as
+          "all" | "read" | "observed" | "unobserved" | undefined,
+        sort: stringParam(url, "sort") as UsageSort | undefined,
+        offset: intParam(url, "offset", { min: 0, max: 10000000 }),
+        limit: intParam(url, "limit", { min: 1, max: 100 }),
+        maxChars: intParam(url, "max_chars", { min: 1, max: 100000 }),
+      }),
+    );
     return;
   }
 
@@ -330,7 +363,7 @@ async function serveStatic(res: ServerResponse, pathname: string): Promise<void>
 
 export function createWebServer(): Server {
   return createServer((req, res) => {
-    void (async () => {
+    void withUsageScope("web", async () => {
       const url = new URL(req.url ?? "/", `http://${DEFAULT_HOST}`);
       try {
         if (url.pathname.startsWith("/api/")) {
@@ -341,7 +374,7 @@ export function createWebServer(): Server {
       } catch (err) {
         sendJson(res, statusForError(err), errorPayload(err));
       }
-    })();
+    });
   });
 }
 

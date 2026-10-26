@@ -6,6 +6,7 @@
  */
 
 import type { SkillMeta } from "@skill-hub/core";
+import { performance } from "node:perf_hooks";
 import { SkillHubError } from "@skill-hub/shared";
 import type { RankedSkill, RouteQuery, RouterDecision, RouterEngine } from "./types.js";
 
@@ -25,6 +26,10 @@ interface TypeSafeChoiceAnswer {
 
 interface TypeSafeResponse {
   model?: unknown;
+  usage?: {
+    input_tokens?: unknown;
+    output_tokens?: unknown;
+  };
   answers?: {
     route?: TypeSafeChoiceAnswer;
   };
@@ -39,9 +44,75 @@ export interface TypeSafeRouterOptions {
   confidenceThreshold?: number;
 }
 
+/** Non-sensitive telemetry for the most recent Jev request; never includes query or Skill metadata. */
+export interface TypeSafeRequestMetrics {
+  readonly model: string | null;
+  readonly latencyMs: number;
+  readonly inputTokens: number | null;
+  readonly outputTokens: number | null;
+  /** True means the HTTP response parsed as a JSON object; it does not assert a valid Choice decision. */
+  readonly completed: boolean;
+}
+
 interface Candidate {
   id: string;
   meta: SkillMeta;
+}
+
+const ROUTE_CHOICE_INSTRUCTIONS =
+  "Choose the Skill that is most directly useful for completing the user's task. " +
+  "Use only the listed candidates. Choose none_of_the_above when no candidate is a reasonable match.";
+
+/** Shared by the live router and local opt-in payload preview. */
+export function buildTypeSafeRouteRequestBody(
+  q: RouteQuery,
+  candidates: Candidate[],
+  model: string,
+) {
+  if (candidates.length > MAX_SKILL_CANDIDATES) {
+    throw new SkillHubError({
+      code: "E_INDEX",
+      message: `Jev Choice 候选数超过 ${MAX_SKILL_CANDIDATES} 个: ${candidates.length}`,
+      details: { engineId: "external-typesafe", candidateCount: candidates.length },
+    });
+  }
+  const candidateIds = new Set<string>();
+  for (const { id } of candidates) {
+    if (id === NONE_ID || candidateIds.has(id)) {
+      throw new SkillHubError({
+        code: "E_INDEX",
+        message: "Jev Choice 候选 ID 必须唯一，且不能使用 none 保留 ID",
+        details: { engineId: "external-typesafe" },
+      });
+    }
+    candidateIds.add(id);
+  }
+  const criteria: Record<string, unknown> = Object.fromEntries(
+    candidates.map(({ id, meta }) => [
+      id,
+      {
+        name: meta.name,
+        description: meta.description,
+        keywords: meta.keywords ?? [],
+      },
+    ]),
+  );
+  criteria[NONE_ID] = {
+    name: "none_of_the_above",
+    description: "None of the listed skills is a reasonable match for the task.",
+  };
+
+  return {
+    state: { query: q.text, profile: q.profile ?? null },
+    model,
+    questions: {
+      route: {
+        type: "choice" as const,
+        instructions: ROUTE_CHOICE_INSTRUCTIONS,
+        criteria,
+      },
+    },
+  };
 }
 
 interface ChoiceEvaluation {
@@ -66,6 +137,7 @@ export class TypeSafeRouterEngine implements RouterEngine {
   private readonly timeoutMs: number;
   private readonly confidenceThreshold: number;
   private latestDecision?: RouterDecision;
+  private latestRequestMetrics?: TypeSafeRequestMetrics;
 
   constructor(options: TypeSafeRouterOptions = {}) {
     // 显式传入空字符串用于测试/禁用时，不应被环境变量重新启用。
@@ -83,6 +155,8 @@ export class TypeSafeRouterEngine implements RouterEngine {
   }
 
   async build(skills: SkillMeta[]): Promise<void> {
+    this.latestDecision = undefined;
+    this.latestRequestMetrics = undefined;
     if (skills.length > MAX_SKILL_CANDIDATES) {
       throw new SkillHubError({
         code: "E_INDEX",
@@ -91,11 +165,11 @@ export class TypeSafeRouterEngine implements RouterEngine {
       });
     }
     this.skills = skills.slice();
-    this.latestDecision = undefined;
   }
 
   async query(q: RouteQuery): Promise<RankedSkill[]> {
     this.latestDecision = undefined;
+    this.latestRequestMetrics = undefined;
     if (!this.apiKey) {
       throw new SkillHubError({
         code: "E_INDEX",
@@ -132,38 +206,17 @@ export class TypeSafeRouterEngine implements RouterEngine {
     return this.latestDecision;
   }
 
-  private async evaluateChoice(q: RouteQuery, candidates: Candidate[]): Promise<ChoiceEvaluation> {
-    const criteria: Record<string, unknown> = Object.fromEntries(
-      candidates.map(({ id, meta }) => [
-        id,
-        {
-          name: meta.name,
-          description: meta.description,
-          keywords: meta.keywords ?? [],
-        },
-      ]),
-    );
-    criteria[NONE_ID] = {
-      name: "none_of_the_above",
-      description: "None of the listed skills is a reasonable match for the task.",
-    };
+  /**
+   * Returns an instance-scoped snapshot for the most recent query attempt.
+   * It is undefined when that query did not issue an HTTP request. Like getDecision(),
+   * it is not a per-call result and should not be correlated across concurrent queries.
+   */
+  getLastRequestMetrics(): TypeSafeRequestMetrics | undefined {
+    return this.latestRequestMetrics ? { ...this.latestRequestMetrics } : undefined;
+  }
 
-    const response = await this.request({
-      state: {
-        query: q.text,
-        profile: q.profile ?? null,
-      },
-      model: this.model,
-      questions: {
-        route: {
-          type: "choice",
-          instructions:
-            "Choose the Skill that is most directly useful for completing the user's task. " +
-            "Use only the listed candidates. Choose none_of_the_above when no candidate is a reasonable match.",
-          criteria,
-        },
-      },
-    });
+  private async evaluateChoice(q: RouteQuery, candidates: Candidate[]): Promise<ChoiceEvaluation> {
+    const response = await this.request(buildTypeSafeRouteRequestBody(q, candidates, this.model));
 
     const answer = response.answers?.route;
     if (!answer || answer.type !== "choice" || typeof answer.choice !== "string") {
@@ -237,6 +290,7 @@ export class TypeSafeRouterEngine implements RouterEngine {
   private async request(body: unknown): Promise<TypeSafeResponse> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const startedAt = performance.now();
     try {
       const response = await fetch(this.apiUrl, {
         method: "POST",
@@ -274,8 +328,23 @@ export class TypeSafeRouterEngine implements RouterEngine {
           details: { engineId: this.engineId },
         });
       }
-      return parsed as TypeSafeResponse;
+      const result = parsed as TypeSafeResponse;
+      this.latestRequestMetrics = {
+        model: typeof result.model === "string" ? result.model : null,
+        latencyMs: elapsedMs(startedAt),
+        inputTokens: tokenCount(result.usage?.input_tokens),
+        outputTokens: tokenCount(result.usage?.output_tokens),
+        completed: true,
+      };
+      return result;
     } catch (err) {
+      this.latestRequestMetrics = {
+        model: null,
+        latencyMs: elapsedMs(startedAt),
+        inputTokens: null,
+        outputTokens: null,
+        completed: false,
+      };
       if (err instanceof SkillHubError) throw err;
       const message = err instanceof Error ? err.message : String(err);
       throw new SkillHubError({
@@ -288,6 +357,14 @@ export class TypeSafeRouterEngine implements RouterEngine {
       clearTimeout(timer);
     }
   }
+}
+
+function elapsedMs(startedAt: number): number {
+  return Number((performance.now() - startedAt).toFixed(3));
+}
+
+function tokenCount(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
 export function createTypeSafeRouter(options: TypeSafeRouterOptions = {}): TypeSafeRouterEngine {

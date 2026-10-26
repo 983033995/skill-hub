@@ -1,5 +1,7 @@
 # 开发计划 / 路线图 — skill-hub
 
+> 当前能力与待办以[STATUS](STATUS.md)、[完成情况复核](COMPLETION_REVIEW_20261026.md)和[TASK_BOARD](TASK_BOARD.md)为准；以下Phase保留历史里程碑，不代表普遍宿主/计费效果已验证。
+
 | 字段 | 值 |
 |------|-----|
 | 状态 | Active |
@@ -243,9 +245,23 @@ cli 稳定 ↘ mcp(M3)
 
 - [x] 核对 `vercel-labs/skills`、OpenSkills、skillshare、skillctl、Agent Skills 规范、Jev Ultrafast 的一手入口和当前 GitHub 元数据。
 - [x] 实现只读 Skill 静态审计：CLI `audit`、MCP `skill_audit`、Web `/api/audit` 与详情页。
-- [ ] 生成最小 `available_skills` manifest，支持项目级渐进披露。
-- [ ] 完成 pin/rollback/overlay/fork 及来源锁迁移说明。
-- [ ] 建立 Jev 评估集并收敛 CI/release 门禁。
+- [x] CLI `manifest` 显式生成最小 `available_skills` XML（name/description + Hub 按需读取提示）；默认预览，确认后原子写入指定普通文件。
+- [x] 完成来源锁迁移说明、Git SHA pin、单 Skill 历史 rollback，以及复制改名 fork + managed `--overlay-of` provenance 工作流；overlay 只记录关系，不自动合并。无独立 fork-copy 命令或 dangling-base 扫描属已知限制。
+- [ ] 完成 Jev 路由评估与 CI/release 门禁；当前 v1 固定 50 条 draft 数据合同（30/15/5，其他分布需新 contract version）、显式 catalog 离线 BM25/latency smoke、无密钥/网络的本地 payload preview 和强 opt-in live runner 已实现；Owner 标签复核与真实 Jev accuracy/usage/cost/escalation 指标运行仍未完成，不设 draft 标签质量阈值。
+
+## Phase 21 — Skill 管理可靠性（2026-10-25）
+
+- [x] 调研已确认的 MichengAI/dsh-skills-manager，核对固定源码与官方 Harness 文档。
+- [x] P21-02：只读更新检查、独立 local/upstream 状态、逐项错误/complete 与列表容错；合成沙箱和既有授权真实只读验收完成，不修改 apply 的本地保护。
+- [x] P21-03：文件/目录/执行位差异、版本绑定token与core/CLI确认门，保留事务/回滚；ADR0011记录旧update写接口迁移，合成沙箱47文件/209测试与smoke通过。
+- [x] P21-04：显式单项同内容来源迁移，旧/新锁预览、独立token、旧锁备份与rollback、来源失效提示；合成沙箱验收，不迁移真实用户来源。
+- 后续切片：复用 core 的管理视图 → 可选 DSH adapter；尚未实现。
+
+## Phase 23 — 使用观测与上下文预算（2026-10-26）
+
+- [x] P23-01：显式可选本地search/read事件；区分来源、首段/续读/附件，提供usage读取与静态context-cost预算；粗估与实际模型账单分开，默认无记录/不上传、不污染盘点、不改真实宿主配置。见[使用手册](../ops/USAGE_AND_CONTEXT.md)。
+- [x] P23-02：Web“使用与预算”视图、固定分母使用率、日期/来源/分类/关键词/状态过滤、使用率/最近读取/Token/名称全局排序与分页；未知和局部错误显式展示，复用只读预算与观测，不新增runtime工具。
+- 后续候选：模型tokenizer精估需先明确模型与许可/依赖范围。实际任务采用和真实账单需宿主回执，不能从读取次数推断。
 
 ## Phase 12 — OpenCode Hub-only 真实回归（2026-10-06）
 
@@ -307,7 +323,30 @@ cli 稳定 ↘ mcp(M3)
 - [x] 110真实元数据+1合成Skill的Native/Hybrid/Hub-only六任务试验，发现列表及缓存分别记录。
 - [x] Codex临时HOME用户/项目/系统enabled状态检查，个人配置不变；插件/模型实际注入未验证。
 
-## Phase 21 — GitHub提交流程完善（2026-10-24）
+## GitHub 贡献治理（2026-10-24 · 已完成）
 
 - [x] `main` 规则要求经 PR 提交，保留三组 CI、review 对话解决和紧急管理员绕过；单维护者不设强制审批数。
 - [x] issue 表单双语化并关闭空白 Issue 入口，安全问题仍指向私密报告渠道。
+
+## Phase 22 — Web 视觉与交互重构（2026-10-26）
+
+- [x] 在不改变只读 HTTP API 与原生 SPA 技术栈的前提下，统一技能库、详情和多端盘点的视觉系统与信息层级。
+- [x] 完成宽屏/窄屏布局、键盘搜索、焦点状态和减少动态效果支持；真实浏览器黄金路径与移动端溢出检查通过。
+- [x] typecheck/build/lint/docs:check、49 文件/220 项测试与隔离 smoke 通过；管理写入能力不在本阶段范围内。
+
+## Phase 24 — 主流 Agent Skill 来源（2026-10-26）
+
+- [x] DeepSeek Harness 与主流 Agent 的用户级来源清单，官方路径及 DSH_HOME/XDG_CONFIG_HOME 依据核对。
+- [x] CLI/MCP/Web 共用只读来源解析，兼容旧配置、显式覆盖/停用、路径去重和 scope/来源过滤；内置来源导入需显式选择。
+- [x] 合成沙箱验证目录 Skill 扫描、缺失根、零配置写入与导入预览；不自动接入宿主 MCP、不增加 sync 目标、不扫描未配置项目目录。
+- [x] P24-02展示修正：Web Agent目录合并用户级只读来源并标注用途；新实例HTTP/ego-browser验证通过。
+- [x] P24-02原地址生效：用户明确授权后仅重启4173本项目Web；原地址HTTP/ego-browser确认15目录及用途，缺失根如实标注，不以预览端口替代原地址验收。
+- [x] P24-03澄清Skill目录状态与Agent安装/运行/MCP连接状态；不为消除目录提示创建原生Skill目录或复制内容。
+
+
+## Phase 25 — 项目完成情况复核与公开入口（2026-10-26）
+
+- [x] 基于最新main隔离整合已授权待发布改动，保留远端Vitest/Actions升级和贡献治理。
+- [x] 源码/测试/文档完成矩阵，中英文README、合成界面展示、可复现沙箱体验、数据模型/运维/交接刷新。
+- [x] 显式保留Owner标签/付费上传授权和宿主模型回归缺口，不将草案或历史配置当完成。
+- PR/远端CI/合并状态以GitHub实际回执为准；本地门禁不代替远端结果。

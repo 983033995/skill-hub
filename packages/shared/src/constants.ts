@@ -1,5 +1,5 @@
 /** skill-hub 库/CLI 版本号（与根 package.json 对齐，发版时同步）。 */
-export const SKILL_HUB_VERSION = "0.2.1" as const;
+export const SKILL_HUB_VERSION = "0.2.2" as const;
 
 /** 默认用户运行时目录名（位于 `$HOME` 下）。 */
 export const DEFAULT_HUB_DIRNAME = ".skill-hub" as const;

@@ -330,3 +330,10 @@
 | ID | 任务 | Status | Owner | 验收 |
 |----|------|--------|-------|------|
 | CI-04 | 复现40832894154并修复PR4工具链不兼容 | done | codex | 兼容范围内更新+显式Node类型；本地274项通过；PR4提交1fd522e的[三组CI40834666134](https://github.com/983033995/skill-hub/actions/runs/40834666134)全通过，默认pnpm test与check:npm保留；PR未合并 |
+
+## npm 0.2.2 与六客户端接入（2026-10-29）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| NPM-022 | 发布0.2.2并按两项用户痛点更新README | in_progress | codex | 主干PR/CI、tag/OIDC、registry字节/安装验收；说明当前支持/限制 |
+| CLIENT-022 | 六客户端改用npm并开启usage | in_progress | codex | 配置备份/最小差异、共享Hub/日志、协议及真实客户端证据分层验收 |

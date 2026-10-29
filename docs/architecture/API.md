@@ -458,6 +458,9 @@ Server instructions 提供精确名直接 fetch、未知先 search/list、附件
 
 ## npm命令包（v0.2.0候选）
 
-`pnpm pack:npm [--name <package-name>]`构建并输出独立tarball及完整路径/integrity/体积/文件数，`published: false`；`pnpm check:npm`生成自己的候选并真实安装验收。当前候选包含三个bin：`skill-hub`、`skill-hub-mcp`、`skill-hub-web`；已移除 HTTP 命令，既有0.2.1注册库包不被重写。对外不承诺JS库exports；不引入安装脚本或改变已有工具语义。详见[npm发行](../ops/NPM_DISTRIBUTION.md)。
+`pnpm pack:npm [--name <package-name>]`构建并输出独立tarball及完整路径/integrity/体积/文件数，`published: false`；`pnpm check:npm`生成自己的候选并真实安装验收。0.2.2候选包含四个bin：`skill-hub`、`skill-hub-mcp`、`skill-hub-web`、`skill-hub-opencode`；已移除 HTTP 命令，既有0.2.1注册库包不被重写。对外不承诺JS库exports；不引入安装脚本或改变已有工具语义。详见[npm发行](../ops/NPM_DISTRIBUTION.md)。
 
 `publish-npm.yml`复用CI并在标签push时发布；manual dispatch只dry-run。`node scripts/publish-npm.mjs --report <acceptance.json> [--publish]`默认为dry-run；真实写入必须处于官方仓库GitHub Actions匹配版本tag push、有OIDC授权且HEAD已合入main。`check:npm --registry`直接核验官方发布字节并重新安装，见[npm发行](../ops/NPM_DISTRIBUTION.md)。
+
+
+0.2.2 的 `skill-hub-opencode` 随 npm 包分发既有 Hub-only 启动器，默认 MCP 与 profiles 从安装包定位；显式传递 SKILL_HUB_HOME/CONFIG/MCP_MODE/USAGE_LOG，继续关闭该独立进程的原生 Skill 发现。它不安装或执行 OpenCode 本体，也不保证其他宿主关闭原生发现。

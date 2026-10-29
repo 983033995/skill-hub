@@ -1,6 +1,6 @@
 {
   "name": "@zhangheteng/skill-hub",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "type": "module",
   "description": "跨 Agent 的 Skill 统一真源管理 + 智能路由 + 省上下文",

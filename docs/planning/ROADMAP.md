@@ -368,3 +368,7 @@ cli 稳定 ↘ mcp(M3)
 
 - 复核范围为 REVIEW-01 的 R1–R7：managed 失败恢复、根 `.git` 保留与事务清理；manifest/评测输入保护；显式 Agent 来源 ID；OpenCode 验收 token；大候选集 usage。
 - 实现和回归进度由 TASK_BOARD 的 FIX-01 跟踪，最终门禁证据写入 PROGRESS；不扩展 HTTP 托管、付费评测或真实客户端/服务变更。
+
+## 0.2.2 — npm分发与共享Skill入口（2026-10-29）
+
+以用户的技能盘点/版本/风险管理和多Agent单真源为目标，npm-first安装与README、四入口发行、六客户端共享Hub/usage接入由NPM-022/CLIENT-022跟踪。注册库发布和宿主接入分层记录，保留未知来源、静态审计和原生发现的边界。

@@ -3,12 +3,12 @@ import path from "node:path";
 import { isDistributionSource } from "../../scripts/pack-npm.mjs";
 import { validateNpmRelease } from "../../scripts/publish-npm.mjs";
 
-const manifest = { name: "@zhangheteng/skill-hub", version: "0.2.1" };
+const manifest = { name: "@zhangheteng/skill-hub", version: "0.2.2" };
 const officialTag = {
   GITHUB_ACTIONS: "true",
   GITHUB_REPOSITORY: "983033995/skill-hub",
   GITHUB_EVENT_NAME: "push",
-  GITHUB_REF: "refs/tags/v0.2.1",
+  GITHUB_REF: "refs/tags/v0.2.2",
   ACTIONS_ID_TOKEN_REQUEST_URL: "https://example.invalid/oidc",
   ACTIONS_ID_TOKEN_REQUEST_TOKEN: "synthetic-oidc-test-only",
 };
@@ -30,7 +30,7 @@ describe("npm publication authorization boundaries", () => {
   });
   it("rejects an unrelated package, malformed tags and prerelease versions", () => {
     expect(() => validateNpmRelease({ ...manifest, name: "other" }, officialTag, false)).toThrow();
-    for (const version of ["01.2.1", "0.2.1-beta.1", "v0.2.1", "0.2"]) {
+    for (const version of ["01.2.2", "0.2.2-beta.1", "v0.2.2", "0.2"]) {
       expect(() => validateNpmRelease({ ...manifest, version }, {}, false)).toThrow();
     }
   });

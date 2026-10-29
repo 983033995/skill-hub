@@ -13,7 +13,7 @@
 ## 决策
 
 - 源码root/workspace保持`private: true`；用`pnpm pack:npm`从构建结果生成独立`@zhangheteng/skill-hub`命令包候选，不执行publish。root/各包/协议版本统一为0.2.0，未发布状态保持明确。
-- 当前单包包含CLI、stdio MCP、Web入口（2026-10-29撤回HTTP MCP命令）、当前生产源码对应的编译JS、Web静态文件、五个显式配置模板与本仓库许可。无安装生命周期脚本，不带个人Skill、catalog、日志、node_modules、测试、源码或source map。
+- 当前单包包含CLI、stdio MCP、Web与OpenCode启动器入口（2026-10-29撤回HTTP MCP命令）、当前生产源码对应的编译JS、Web静态文件、五个显式配置模板与本仓库许可。无安装生命周期脚本，不带个人Skill、catalog、日志、node_modules、测试、源码或source map。
 - 打包使用既有TypeScript AST只转换模块specifier：`@skill-hub/*`映射为包内`#skill-hub/*`，由Node imports指向自带模块。未知workspace或未声明外部依赖失败。外部MCP SDK维持原锁定直接依赖版本；不发布七个内部包，不增加bundler依赖。
 - 输出在忽略的`outputs/npm-*`，每次独立目录保留tarball、内容报告、integrity与验收报告。可用`--name`指定经确认的包名；注册库404不是包名注册保证。
 - `pnpm check:npm`真实安装tarball到独立prefix，从空cwd验收CLI/npm exec、配置模板、profile、stdio分页/hash和Web静态资源，且确认HTTP命令不在候选中；不操作个人Hub，不调用模型。
@@ -36,3 +36,6 @@
 ## GitHub Actions后续发布（2026-10-26 Owner追加授权）
 
 `publish-npm.yml`使用GitHub-hosted runner和npm OIDC，无长期token；完整复用三组CI后，在Node24/pinned npm中验收精确tarball。只有官方仓库稳定版本标签push、标签=manifest版本且提交已在main历史内才可真实publish；manual dispatch只dry-run。发布后官方registry元数据/字节integrity和安装验收必须通过；已存在版本不同字节拒绝覆盖。npm信任配置绑定精确workflow filename并回读，首次Action发布才证明端到端。Owner授权发布自动化包含一次0.2.1补丁版验证，记录真实回执，不把配置完成当运行成功。
+
+
+2026-10-29 0.2.2补充：用户授权npm新版本及多客户端迁移，白名单加入既有`scripts/opencode-hub.mjs`与`skill-hub-opencode` bin，使Hub-only OpenCode入口无需源码checkout；安装验收用假原生binary验证包内MCP和usage参数转发，不调用模型或导入真实provider文件。HTTP命令不恢复。

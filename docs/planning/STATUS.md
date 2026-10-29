@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-29 · Version: latest registry release 0.2.1; current source has unreleased safety fixes and HTTP withdrawal
+Updated: 2026-10-29 · Version: 0.2.2 release candidate; latest verified registry release 0.2.1
 
 The [2026-10-26 completion review](COMPLETION_REVIEW_20261026.md) records the source/test/documentation audit and remaining acceptance gaps.
 

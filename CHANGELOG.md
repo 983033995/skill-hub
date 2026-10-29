@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.2.2 (release candidate · 2026-10-29)
+
+- Add an npm-distributed `skill-hub-opencode` launcher that uses the installed MCP/profile files and forwards explicit Hub/config/mode/usage settings. Keep HTTP MCP excluded.
+- Make npm installation and one shared Skill store the primary README path, focused on discovering accumulated Skills, reviewing source updates/static risks, and avoiding per-agent version drift.
 
 ### HTTP MCP withdrawal (2026-10-29)
 

@@ -808,3 +808,11 @@ P24-02后续验收完成：用户回复“可以”明确授权仅重启4173本�
 - 兼容修复以1fd522e fast-forward推回PR4原分支，没有force push。PR标题/说明已改为当前范围内的工具链更新与Node类型加载，不再冒称完成原七项主版本组合迁移。
 - [CI40834666134](https://github.com/983033995/skill-hub/actions/runs/40834666134) 对1fd522e的Ubuntu Node20、Ubuntu Node22、macOS Node22全部success，GitHub回读CLEAN；保留默认pnpm test、typecheck/build/lint/eval/docs/smoke/check:npm，未放宽超时或删除矩阵。该远端运行证明当前支持组合在原CI环境通过；原失败run40832894154继续保留其历史失败状态，不将旧run改写为成功。
 - PR4保持OPEN，未合入主干，也未发布npm/操作真实Hub或运行服务。CI-04关闭表示此CI修复与验证完成；后续合并需按PR保护规则和用户授权范围执行。
+
+### 2026-10-29 — npm0.2.2与六客户端迁移准备
+
+- 用户明确授权发布新的npm版本、将Cursor/Qoder/Codex/WorkBuddy/DeepSeek Harness/OpenCode改用npm并开启使用统计和验证，同时要求README聚焦技能积累后的盘点/更新/风险管理与多Agent副本版本不一致。以主干b62b592创建隔离发行分支，保留真实Skill/来源锁/catalog与其他MCP/provider。
+- 根/七workspace/协议版本统一0.2.2；npm新增skill-hub-opencode，复用现有Hub-only启动器并按安装包定位MCP/profiles，显式转发Hub/config/mode/usage。安装包验收用假native binary验证配置与参数，不运行模型或读取真实provider配置。HTTP入口保持移除。
+- README中英与npm/MCP/OpenCode文档改为免克隆的npm入口，用盘点、已绑定来源的更新检查、静态审计、单真源按需读取和usage解释价值与限制；未宣称未知源可自动查新、静态审计可保证安全或MCP会自动关闭宿主原生发现。
+- 本地build/typecheck/lint、57文件274测试(maxWorkers=2)、eval/docs(67 Markdown零坏链)/smoke、实际npm tarball独立prefix安装验收、改动代码Prettier/diff通过；包候选93文件145837字节，四入口CLI/stdio/Web/OpenCode，published=false。现有Skill库元数据145项路径均存在、managed来源锁13项；仅保存基线hash/数量，不向仓库复制私人内容。
+- 六客户端配置已只读定位并生成最小修改预览：保持同一Hub与本地usage路径，备份后再原子修改。Cursor新增Hub条目；Qoder/WorkBuddy源码入口与Codex复制运行包、OpenCode源码包装器将替换为npm入口；DSH按已存在Cordis overlay修改原MCP项，不执行YAML自定义表达式、不新建第二套无效配置。正式迁移在registry发布回读/安装验收后执行；配置、SDK协议与宿主真实连接/模型调用分别报告。

@@ -3,7 +3,7 @@ import console from "node:console";
 import process from "node:process";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
@@ -91,7 +91,7 @@ async function main() {
   for (const file of contents.files) {
     assert.match(
       file.path,
-      /^(?:package\.json|README\.md|LICENSE|NOTICE\.md|configs\/[^.].*|apps\/(?:cli|mcp-server|web)\/dist\/.*\.js|apps\/web\/public\/.*|packages\/(?:core|router|shared|sync)\/dist\/.*\.js)$/,
+      /^(?:package\.json|README\.md|LICENSE|NOTICE\.md|scripts\/opencode-hub\.mjs|configs\/[^.].*|apps\/(?:cli|mcp-server|web)\/dist\/.*\.js|apps\/web\/public\/.*|packages\/(?:core|router|shared|sync)\/dist\/.*\.js)$/,
     );
     assert.doesNotMatch(
       file.path,
@@ -156,11 +156,13 @@ async function main() {
     "skill-hub",
     "skill-hub-mcp",
     "skill-hub-web",
+    "skill-hub-opencode",
   ]);
   assert.deepEqual(installedManifest.bin, {
     "skill-hub": "apps/cli/dist/index.js",
     "skill-hub-mcp": "apps/mcp-server/dist/index.js",
     "skill-hub-web": "apps/web/dist/index.js",
+    "skill-hub-opencode": "scripts/opencode-hub.mjs",
   });
   assert.ok(!contents.files.some((file) => file.path === "apps/mcp-server/dist/http.js"));
   assert.ok(!JSON.stringify(installedManifest).includes("skill-hub-mcp-http"));
@@ -258,6 +260,66 @@ async function main() {
   }
   checks.push("installed stdio binary: real SDK handshake/list/paging/hash");
 
+  const fakeNative = path.join(root, "fake-opencode.mjs");
+  await writeFile(
+    fakeNative,
+    `#!/usr/bin/env node\nimport process from "node:process";\nconst config = JSON.parse(process.env.OPENCODE_CONFIG_CONTENT);\nconsole.log(JSON.stringify({ config, args: process.argv.slice(2) }));\n`,
+  );
+  await chmod(fakeNative, 0o755);
+  const openCodeHome = path.join(root, "opencode-home");
+  const openCodeXdg = path.join(root, "opencode-xdg");
+  await mkdir(openCodeHome);
+  await mkdir(openCodeXdg);
+  const profileDir = path.join(root, "profiles");
+  const configPath = path.join(root, "hub-config.yaml");
+  const usageLog = path.join(root, "usage.jsonl");
+  const opencode = JSON.parse(
+    (
+      await exec(
+        process.execPath,
+        [bin("skill-hub-opencode"), "--mcp-mode", "runtime", "debug", "agent", "build"],
+        {
+          cwd: work,
+          env: {
+            ...env,
+            HOME: openCodeHome,
+            XDG_CONFIG_HOME: openCodeXdg,
+            OPENCODE_NATIVE_BIN: fakeNative,
+            SKILL_HUB_HOME: path.join(root, "opencode-hub"),
+            SKILL_HUB_CONFIG: configPath,
+            SKILL_HUB_PROFILES_DIR: profileDir,
+            SKILL_HUB_USAGE_LOG: usageLog,
+            OPENAI_API_KEY: "acceptance-provider-secret",
+          },
+          timeout: 30_000,
+          maxBuffer: 2 * 1024 * 1024,
+        },
+      )
+    ).stdout,
+  );
+  const openCodeConfig = opencode.config;
+  const openCodeMcp = openCodeConfig.mcp["skill-hub"];
+  const installedMcp = path.join(installed, "apps/mcp-server/dist/index.js");
+  assert.deepEqual(opencode.args, ["debug", "agent", "build"]);
+  assert.equal(openCodeConfig.tools.skill, false);
+  assert.equal(openCodeConfig.permission.skill, "deny");
+  assert.deepEqual(openCodeConfig.provider, {});
+  assert.deepEqual(openCodeMcp.command, [process.execPath, installedMcp]);
+  assert.ok((await readFile(openCodeMcp.command[1], "utf8")).length > 0);
+  assert.notEqual(openCodeMcp.command[1], path.join(repo, "apps/mcp-server/dist/index.js"));
+  assert.deepEqual(openCodeMcp.environment, {
+    SKILL_HUB_HOME: path.join(root, "opencode-hub"),
+    SKILL_HUB_PROFILES_DIR: profileDir,
+    SKILL_HUB_MCP_MODE: "runtime",
+    SKILL_HUB_CONFIG: configPath,
+    SKILL_HUB_USAGE_LOG: usageLog,
+  });
+  assert.ok(!JSON.stringify(openCodeConfig).includes("acceptance-provider-secret"));
+  assert.ok(!JSON.stringify(openCodeConfig).includes(openCodeXdg));
+  checks.push(
+    "installed OpenCode bin: bundled MCP path and Hub/profile/usage settings verified with isolated fake native binary; no provider file or model call",
+  );
+
   // Test the installed Web factory and actual shipped static assets without leaving a server running.
   const webResult = await exec(
     process.execPath,
@@ -283,7 +345,7 @@ async function main() {
   );
   assert.equal(webResult.stdout, "");
   checks.push("installed Web module serves shipped HTML assets");
-  checks.push("package exposes CLI, stdio MCP, and Web bins; HTTP MCP is excluded");
+  checks.push("package exposes CLI, stdio MCP, Web, and OpenCode bins; HTTP MCP is excluded");
   const acceptance = { ok: true, ...report, checks, personalHubTouched: false, paidModelCalls: 0 };
   await writeFile(path.join(root, "acceptance.json"), JSON.stringify(acceptance, null, 2) + "\n");
   console.log(JSON.stringify(acceptance, null, 2));

@@ -141,6 +141,7 @@ async function main() {
       await copy(path.relative(root, file));
   }
   for (const file of [
+    "scripts/opencode-hub.mjs",
     "configs/agents/default.yaml",
     "configs/profiles/coding.yaml",
     "configs/profiles/video.yaml",
@@ -154,6 +155,7 @@ async function main() {
     "skill-hub": "apps/cli/dist/index.js",
     "skill-hub-mcp": "apps/mcp-server/dist/index.js",
     "skill-hub-web": "apps/web/dist/index.js",
+    "skill-hub-opencode": "scripts/opencode-hub.mjs",
   };
   const manifest = {
     name,
@@ -172,6 +174,7 @@ async function main() {
     ),
     files: [
       "apps/*/dist/**/*.js",
+      "scripts/opencode-hub.mjs",
       "apps/web/public",
       "packages/*/dist/**/*.js",
       "configs",

@@ -63,8 +63,15 @@ try {
         enabled: true,
         environment: {
           SKILL_HUB_HOME: hubHome,
-          SKILL_HUB_PROFILES_DIR: path.join(repo, "configs/profiles"),
+          SKILL_HUB_PROFILES_DIR:
+            process.env.SKILL_HUB_PROFILES_DIR || path.join(repo, "configs/profiles"),
           SKILL_HUB_MCP_MODE: mcpMode,
+          ...(process.env.SKILL_HUB_CONFIG !== undefined
+            ? { SKILL_HUB_CONFIG: process.env.SKILL_HUB_CONFIG }
+            : {}),
+          ...(process.env.SKILL_HUB_USAGE_LOG !== undefined
+            ? { SKILL_HUB_USAGE_LOG: process.env.SKILL_HUB_USAGE_LOG }
+            : {}),
         },
       },
     },

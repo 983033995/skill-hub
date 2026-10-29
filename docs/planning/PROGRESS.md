@@ -816,3 +816,13 @@ P24-02后续验收完成：用户回复“可以”明确授权仅重启4173本�
 - README中英与npm/MCP/OpenCode文档改为免克隆的npm入口，用盘点、已绑定来源的更新检查、静态审计、单真源按需读取和usage解释价值与限制；未宣称未知源可自动查新、静态审计可保证安全或MCP会自动关闭宿主原生发现。
 - 本地build/typecheck/lint、57文件274测试(maxWorkers=2)、eval/docs(67 Markdown零坏链)/smoke、实际npm tarball独立prefix安装验收、改动代码Prettier/diff通过；包候选93文件145837字节，四入口CLI/stdio/Web/OpenCode，published=false。现有Skill库元数据145项路径均存在、managed来源锁13项；仅保存基线hash/数量，不向仓库复制私人内容。
 - 六客户端配置已只读定位并生成最小修改预览：保持同一Hub与本地usage路径，备份后再原子修改。Cursor新增Hub条目；Qoder/WorkBuddy源码入口与Codex复制运行包、OpenCode源码包装器将替换为npm入口；DSH按已存在Cordis overlay修改原MCP项，不执行YAML自定义表达式、不新建第二套无效配置。正式迁移在registry发布回读/安装验收后执行；配置、SDK协议与宿主真实连接/模型调用分别报告。
+
+### 2026-10-29 — npm0.2.2发布与六客户端迁移回执
+
+- [PR14](https://github.com/983033995/skill-hub/pull/14) 三组CI通过后合入a666fe0，创建并推送v0.2.2；[发布Action40840168267](https://github.com/983033995/skill-hub/actions/runs/40840168267) 三组CI、OIDC发布与registry重装全部success。官方registry0.2.2、provenance和tarball回读通过，147223字节的SHA-512与Action精确包一致；一次本地404由后续registry/Action交叉回读消除，没有重复发布或移动tag。
+- 安装官方固定版本到用户拥有的独立npm prefix，package-lock integrity核对一致；四个CLI入口在本机PATH可用，HTTP命令不在包中。没有从本地源码包冒充registry版本，没有修改npm账户/凭据。README中英、npm/MCP/OpenCode指南和状态从候选更新为已有真实回执的发行版本。
+- 六客户端配置及OpenCode包装器已在私有Hub backups下逐文件备份+hash，保留原权限，原子替换前重验；Codex仅改Hub两个TOML小节，DSH仅改既有Cordis Hub行且不执行!!js，JSON客户端非Hub/provider键逐项对比相同。统一指向npm0.2.2与同一个既有Hub、独立usage.jsonl；现有catalog/config/managed-lock/history/BM25内容hash不变，未导入/更新/删除真实Skill或执行全量sync。
+- 按每个客户端实际存储配置启动独立SDK进程，六套initialize/serverVersion0.2.2、11工具、BM25搜索/正文/附件均通过；每套新增1次搜索+1次正文读取，共12条usage，权限0600，字段不含query/正文/附件路径。验证流量不是生产采用证据；usage仍只区分mcp/cli/web/library，不能据此识别六端真实调用者。
+- 宿主证据：Cursor原生CLI列出11工具，OpenCode npm包装器下原生mcp list为connected；Qoder与DSH桌面父进程已拉起npm0.2.2 MCP。Codex原生配置回读正确，但当前聊天仍持旧MCP进程；WorkBuddy未取得桌面重载证据，均需新会话/重连后使用。未用额外模型请求或杀进程制造通过，未声称六个桌面模型任务全部验收。
+- npm版Web独立临时listener读取真实145项Hub的usage接口HTTP200/complete=true，正常关闭；旧4173健康版本0.1.0，usage接口因读catalog报E_PATH500，未擅自重启旧服务。CLI usage完整读回6搜索/6读取/0错误；report进程recordingEnabled=false仅指该CLI进程未配置记录，不表示六端env未启用。桌面新会话与旧Web重载边界公开在MCP接入文档。
+- NPM-022/CLIENT-022完成表示发行、配置与分层验证已完成；不可把配置或SDK检验等同于宿主模型采用。回滚位置、精确配置/进程/SDK回执保留本地忽略outputs及私有备份，不进入公开仓库。真实Skill盘点/来源锁/静态审计能力与自动迁移、自动升级、安全保证分别解释，README围绕用户两项痛点展开。

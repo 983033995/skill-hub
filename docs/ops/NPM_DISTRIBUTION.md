@@ -1,6 +1,6 @@
 # npm distribution and GitHub Actions publishing
 
-Status: 0.2.2 release candidate; latest verified registry version 0.2.1 · Updated: 2026-10-29
+Status: 0.2.2 published through GitHub Actions OIDC · Updated: 2026-10-29
 
 The source root and all workspaces remain `private: true`. Packaging creates a separate installable command package; it does not change npm credentials or upload anything. See [ADR 0014](../adr/0014-single-npm-distribution.md).
 
@@ -52,6 +52,15 @@ The release job directly reads official version metadata and downloads its regis
 Trusted publishing adds npm provenance for this public repository/package. The initial 0.2.0 was published manually and does not claim Action provenance. A broken later version is repaired by a new version; automatic unpublish or dist-tag rollback is not configured. Restricting existing npm tokens/account settings is a separate operation and is not changed by this workflow.
 
 ## Verified release evidence
+
+### 0.2.2 (2026-10-29)
+
+- Package: [@zhangheteng/skill-hub 0.2.2](https://www.npmjs.com/package/@zhangheteng/skill-hub/v/0.2.2); tag `v0.2.2` at `a666fe008655f81060227e624d751f53c776a813`.
+- [Action40840168267](https://github.com/983033995/skill-hub/actions/runs/40840168267) passed the three CI matrices, OIDC publication and exact registry reinstall acceptance.
+- Registry integrity: `sha512-g01IKtDMecSPIds4bz/acCguzUsYuP/unLqjxls8+BDRcm8fnM4faYbMKzvZ8JDH1xXj6FVpBa5bOTEBotGd+w==`; official downloaded bytes match the Action artifact (147223 bytes). Provenance is registered. Local builds may produce different tar bytes; they are not substituted for the accepted registry artifact.
+- Four commands: CLI, stdio MCP, Web and OpenCode launcher. No HTTP MCP entry. A fixed-version user-owned npm prefix was installed and its package-lock integrity matched the release receipt before client configuration changes.
+
+### Previous 0.2.1 release
 
 - Package: [@zhangheteng/skill-hub 0.2.1](https://www.npmjs.com/package/@zhangheteng/skill-hub/v/0.2.1); tag `v0.2.1` at `12d023177b73b5af20d1a9b765081b55a2f193c4`.
 - [Action run](https://github.com/983033995/skill-hub/actions/runs/40319985700): three CI matrices, OIDC publication and registry acceptance. The first attempt published successfully but hit a short registry-visibility 404 during verification; retry checks the already-published integrity and skips duplicate upload.

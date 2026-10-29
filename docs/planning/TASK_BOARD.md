@@ -335,5 +335,5 @@
 
 | ID | 任务 | Status | Owner | 验收 |
 |----|------|--------|-------|------|
-| NPM-022 | 发布0.2.2并按两项用户痛点更新README | in_progress | codex | 主干PR/CI、tag/OIDC、registry字节/安装验收；说明当前支持/限制 |
-| CLIENT-022 | 六客户端改用npm并开启usage | in_progress | codex | 配置备份/最小差异、共享Hub/日志、协议及真实客户端证据分层验收 |
+| NPM-022 | 发布0.2.2并按两项用户痛点更新README | done | codex | PR14合入、v0.2.2/OIDC40840168267成功；官方registry字节/固定prefix安装验收，四入口无HTTP |
+| CLIENT-022 | 六客户端改用npm并开启usage | done | codex | 六端配置+OpenCode包装器备份后改用npm；六套精确配置SDK search/read/files+12条usage通过，Cursor/OpenCode原生连接、Qoder/DSH新进程；Codex旧聊天/WorkBuddy桌面需重载，未声称模型采用 |

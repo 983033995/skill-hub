@@ -4,7 +4,7 @@ One local library for managing Skills across agents. Inspect what is present, tr
 
 This is the npm command distribution for [983033995/skill-hub](https://github.com/983033995/skill-hub). Node.js 20+ is required; Git is needed for GitHub-backed Skill sources.
 
-**Version 0.2.2 is this release round's candidate.** Confirm the version appears in the npm registry before installing; a source candidate or package README does not prove publication.
+**Version 0.2.2 is published and registry installation has been verified.** Install the exact version below; no source checkout or build is required. The source repository records the OIDC publication and integrity receipts.
 
 ## Install
 

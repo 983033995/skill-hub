@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.2 (release candidate · 2026-10-29)
+## 0.2.2 (2026-10-29)
 
 - Add an npm-distributed `skill-hub-opencode` launcher that uses the installed MCP/profile files and forwards explicit Hub/config/mode/usage settings. Keep HTTP MCP excluded.
 - Make npm installation and one shared Skill store the primary README path, focused on discovering accumulated Skills, reviewing source updates/static risks, and avoiding per-agent version drift.
@@ -8,7 +8,7 @@
 ### HTTP MCP withdrawal (2026-10-29)
 
 - Remove the HTTP MCP entry, remote adapter and HTTP distribution command from current source and future package candidates. Keep CLI, stdio full/runtime, local Web, npm packaging and OIDC release automation.
-- Existing npm 0.2.0/0.2.1 artifacts and release records remain unchanged. No new registry version or hosted endpoint is created by this source change; the release notes below remain historical records.
+- Existing npm 0.2.0/0.2.1 artifacts and release records remain unchanged. Version0.2.2 distributes the updated local program; no hosted endpoint is deployed. Earlier release notes remain historical records.
 
 ### Review safety fixes (2026-10-29)
 

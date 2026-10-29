@@ -790,3 +790,15 @@ P24-02后续验收完成：用户回复“可以”明确授权仅重启4173本�
 
 - 隔离分支以 c1a9931 提交安全修复与 HTTP MCP 撤回，已推送并创建 [PR #13](https://github.com/983033995/skill-hub/pull/13)，base main850aff6。PR包含58个明确暂存的源码/测试/文档文件，未包含outputs、个人Skill或凭据。
 - 实时回读main-integrity仍要求Linux Node20/22及macOS Node22三组检查、PR和讨论解决；当前PR可合并、无review讨论，初次读取时三组CI运行中。DELIVERY-01表示隔离整合和PR提交完成，远端CI/实际合并不在此提前宣称；后续以同一PR的实际状态和merge commit为证。
+
+### 2026-10-29 — Dependabot PR #4 类型检查失败复现与范围收敛
+
+- 用户报告 [CI40832894154](https://github.com/983033995/skill-hub/actions/runs/40832894154) 失败。实时确认属于 [PR #4](https://github.com/983033995/skill-hub/pull/4) 的1e1de0d，不是PR13/主干166fd20；主干合并后CI40832482533三组仍success。PR4只改manifest/lock，将TypeScript5→7、ESLint9→10、Vitest4→5、Node类型22→26等七项一次升级，三组均停在typecheck。
+- 隔离取PR4精确head冻结安装并强制tsc project rebuild，复现缺process/node:* /Buffer/NodeJS等错误。显式types:[node]可修该类型发现问题；进一步读取实际安装包peer/engine：typescript-eslint8.72仅支持TS>=4.8.4 <6.1，Vitest5要求Node22.12/24/26（排除Node20），因此不能只修typecheck就宣布整组兼容。Context7当前官方资料同样确认TS7与typescript-eslint不兼容。
+- 保留主干TypeScript5/Vitest4/ESLint9/Node22类型主版本，允许其范围内patch/minor与Prettier/typescript-eslint兼容更新；重新生成lock并冻结安装，不删除Node20检查、不禁用规则/测试。ESLint10初步验证触发11项新规则错误，未为依赖PR扩大业务源码diff。tsconfig.base显式声明node类型，生产代码、发布版本、HTTP撤回和运行服务不变。后续完整本地/PR4三组CI结果以实际回执记录。
+
+### 2026-10-29 — PR #4 收敛后的本地验证
+
+- 最终解析为TS5.9.3、ESLint/@eslint/js9.39.5、Vitest4.1.12、Node类型22.20.5、Prettier3.9.10和typescript-eslint8.72.0；主版本与原支持矩阵一致。共享types:[node]显式保留，tsconfig不注入DOM/测试全局。
+- 冻结安装、强制tsc -b --force、正常typecheck/build、lint、eval:check、docs:check（67 Markdown零坏链）、smoke、check:npm、修改配置Prettier与diff检查通过。全量57文件274项用maxWorkers=2全部通过；本机默认并发两轮均有managed-plan-cli/managed-check-cli的5秒超时，其余272项通过。未改超时/worker默认配置或跳过用例，远端CI仍按原默认pnpm test执行。
+- npm tarball独立prefix安装、CLI/npm exec/init模板/stdio SDK/Web与无HTTP命令验收通过，published=false、personalHubTouched=false、paidModelCalls=0，生成候选与上一已验收源码包字节一致。下一步fast-forward推回原PR4，不改主干、不force push、不恢复HTTP托管。

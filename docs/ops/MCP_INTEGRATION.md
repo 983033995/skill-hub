@@ -4,7 +4,7 @@ Status: Active · Updated: 2026-10-29 · Transport: local stdio · Scope: read-o
 
 Skill Hub can serve the same local Skill library to multiple agents. Install the program from npm, then configure each host to run the stdio server and point to the same Hub. Host configuration is explicit and per client.
 
-**Version 0.2.2 is this release round's npm candidate.** Check the registry before using it; source changes and candidate docs are not publication evidence.
+**Version 0.2.2 is published on npm and verified against registry bytes and installation receipts.** Use an exact version so clients share the same program release as well as the same Skill store.
 
 ## Install the program
 
@@ -127,3 +127,20 @@ A configured MCP connection does not prove the host has called the tools. Hub re
 | Missing usage records | Confirm the variable reached the MCP process, the parent directory exists, and history has not been rotated or removed |
 
 Static inventory, update checks, and audit are read-only. An explicit install/ingest, managed update, or sync operation is a separate write path with its own preview and confirmation behavior.
+
+## 0.2.2 rollout evidence and reload boundary
+
+An authorized local rollout migrated Cursor, Qoder, Codex, WorkBuddy, DeepSeek Harness and OpenCode to one fixed-version npm installation and the same existing Hub/usage file. Original configuration files were backed up with hashes before atomic replacement; unrelated MCP/provider entries and Hub catalog/source-lock/index/history hashes were preserved.
+
+| Client | Recorded 0.2.2 evidence | What still needs a new session or reload |
+|---|---|---|
+| Cursor | Native CLI discovered all 11 Hub tools; exact stored launcher passed search/read/files and wrote usage | Existing desktop sessions may retain older discovery state |
+| OpenCode | Native CLI reported Hub connected through the npm Hub-only wrapper; exact launcher passed reads/usage | Model-level task adoption remains separate |
+| Qoder | Desktop spawned the npm MCP process; exact stored launcher passed reads/usage | An older session also retained its source MCP; new sessions should use the new entry |
+| DeepSeek Harness | Desktop spawned the npm MCP after its existing Cordis row changed; exact launcher passed reads/usage | Model task calls were not inferred from process presence |
+| Codex | Native config read-back confirmed npm path/usage; exact launcher passed reads/usage | Existing chats retained old MCP processes; reconnect or a new session is needed |
+| WorkBuddy | Config backup/change/read-back and exact launcher search/read/files/usage passed | Desktop reload and model-level task calls were not observed |
+
+The six SDK verification runs added six searches and six reads. These are validation traffic, not production adoption samples. Usage origin is `mcp`; it does not identify which client issued a call. No model request was made to manufacture acceptance.
+
+The npm Web module served the real Hub's usage report successfully in an isolated temporary listener. An already-running older Web instance can still hold old code/permissions and fail even when the npm module works; do not silently restart unrelated live services. Check the actual requested address after an authorized reload.

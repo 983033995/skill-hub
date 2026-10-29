@@ -15,7 +15,7 @@
 
 Skill Hub 是本地运行的 Agent Skill 管理程序。它管理包含 `SKILL.md` 及可选脚本、参考资料或素材的目录，帮助你统一记录来源与版本、盘点各 Agent 路径中的 Skill，并在任务需要时通过 MCP 提供选中的 Skill。
 
-**0.2.2 是本轮 npm 发行候选。** 仓库里的候选版本不等于已经发布；安装此前请以 npm registry 中的版本记录为准。[npm 包说明 →](docs/ops/NPM_PACKAGE_README.md)
+**0.2.2 已发布到 npm。** GitHub Actions OIDC 发布、官方注册库字节完整性和新目录安装均已验收，无需克隆源码或编译。[npm 包说明 →](docs/ops/NPM_PACKAGE_README.md)
 
 ## 它解决什么问题
 

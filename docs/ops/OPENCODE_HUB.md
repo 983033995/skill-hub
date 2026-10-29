@@ -2,7 +2,7 @@
 
 Status: Active · Updated: 2026-10-29
 
-The npm package includes `skill-hub-opencode`, an opt-in launcher for OpenCode with a packaged Hub MCP configuration and profile templates. It does not require a source checkout or build. Version 0.2.2 is this round's npm candidate; check the registry before installing it.
+The npm package includes `skill-hub-opencode`, an opt-in launcher for OpenCode with a packaged Hub MCP configuration and profile templates. It does not require a source checkout or build. Version 0.2.2 is published, with registry installation and installed-launcher acceptance verified.
 
 ## Install and launch
 
@@ -35,7 +35,7 @@ The MCP profile is `full` by default. Set `SKILL_HUB_MCP_MODE=runtime` or pass `
 
 Historical local checks on OpenCode 1.18.31/1.18.34 covered eight scenarios: exact Skill reads and attachments, task-based discovery, browsing, paging, errors, update/new session behavior, and a Chinese rewrite example. A local catalog was compared over stdio MCP against disk contents and hashes.
 
-These results are host-specific historical evidence. They do not promise compatibility with every OpenCode version and do not prove that npm candidate 0.2.2 has passed registry installation or package-level acceptance. Public offline CI uses synthetic fixtures; rerun host checks after upgrading OpenCode.
+These results are host-specific historical evidence. They do not promise compatibility with every OpenCode version and do not replace npm 0.2.2's separate registry and installed-launcher acceptance. Public offline CI uses synthetic fixtures; rerun host checks after upgrading OpenCode.
 
 ## Repository development checks
 

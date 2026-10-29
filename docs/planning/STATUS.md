@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-29 · Version: 0.2.2 release candidate; latest verified registry release 0.2.1
+Updated: 2026-10-29 · Version: 0.2.2 published on npm via GitHub Actions OIDC
 
 The [2026-10-26 completion review](COMPLETION_REVIEW_20261026.md) records the source/test/documentation audit and remaining acceptance gaps.
 
@@ -36,7 +36,7 @@ Current local evidence also includes [50-task draft recall evaluation and Native
 
 ## Known limitations
 
-- Current source is stdio-only: the HTTP MCP entry, remote adapter and distribution command were removed on 2026-10-29. Already-published v0.2.1 bytes remain unchanged; no new package or endpoint is published by this source change. Web REST remains separate. See [remote MCP](../ops/REMOTE_MCP.md).
+- Current source is stdio-only: the HTTP MCP entry, remote adapter and distribution command were removed on 2026-10-29. Published v0.2.2 has CLI/stdio/Web/OpenCode entries and no HTTP MCP command; earlier v0.2.1 bytes remain unchanged. No public endpoint is deployed. Web REST remains separate. See [remote MCP](../ops/REMOTE_MCP.md).
 
 - `restore --apply` replaces destination contents; review the manifest, retain a separate copy and test in a sandbox. Directory/lock and catalog/index changes are not one cross-package transaction.
 - `route --include-body` is currently reserved; use explicit read/fetch tools.

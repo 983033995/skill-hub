@@ -10,7 +10,7 @@ import {
   readCatalog,
   scanSkills,
   skillMetaToCatalogEntry,
-  writeCatalog,
+  updateCatalog,
 } from "@skill-hub/core";
 import { createBm25Router } from "@skill-hub/router";
 import {
@@ -59,42 +59,44 @@ export async function runIndex(options: {
   let skills = catalogToSkillMetas(catalog);
   if (options.rebuild || skills.length === 0) {
     {
-      const issues: Array<{ path: string; message: string }> = [];
-      skills = await scanSkills(config.canonical_dir, {
-        onIssue: (issue) => issues.push(issue),
-        source: config.canonical_dir,
-        provenance: {
-          scope: "user",
-          sourceType: "local",
-          sourceRef: config.canonical_dir,
-        },
-      });
-      if (issues.length)
-        throw new SkillHubError({
-          code: "E_INDEX",
-          message: `canonical 扫描不完整: ${JSON.stringify(issues)}`,
-        });
-      const previousEntries = catalog.skills;
       const physicalCanonical = await realpath(config.canonical_dir);
-      catalog = {
-        version: 1 as const,
-        updatedAt: new Date().toISOString(),
-        skills: Object.fromEntries([
-          ...Object.entries(previousEntries).filter(
-            ([, entry]) =>
-              !isPathInside(entry.path, config.canonical_dir) &&
-              !isPathInside(entry.path, physicalCanonical),
-          ),
-          ...skills.map((s) => {
-            const entry = skillMetaToCatalogEntry(s);
-            const previous = previousEntries[s.name];
-            if (previous?.provenance) entry.provenance = { ...previous.provenance };
-            if (previous?.source) entry.source = previous.source;
-            return [s.name, entry];
-          }),
-        ]),
-      };
-      await writeCatalog(catalogPath, catalog);
+      const result = await updateCatalog(catalogPath, async (current) => {
+        const issues: Array<{ path: string; message: string }> = [];
+        const refreshedSkills = await scanSkills(config.canonical_dir, {
+          onIssue: (issue) => issues.push(issue),
+          source: config.canonical_dir,
+          provenance: {
+            scope: "user",
+            sourceType: "local",
+            sourceRef: config.canonical_dir,
+          },
+        });
+        if (issues.length)
+          throw new SkillHubError({
+            code: "E_INDEX",
+            message: `canonical 扫描不完整: ${JSON.stringify(issues)}`,
+          });
+        const previousEntries = current.skills;
+        return {
+          version: 1 as const,
+          updatedAt: new Date().toISOString(),
+          skills: Object.fromEntries([
+            ...Object.entries(previousEntries).filter(
+              ([, entry]) =>
+                !isPathInside(entry.path, config.canonical_dir) &&
+                !isPathInside(entry.path, physicalCanonical),
+            ),
+            ...refreshedSkills.map((s) => {
+              const entry = skillMetaToCatalogEntry(s);
+              const previous = previousEntries[s.name];
+              if (previous?.provenance) entry.provenance = { ...previous.provenance };
+              if (previous?.source) entry.source = previous.source;
+              return [s.name, entry];
+            }),
+          ]),
+        };
+      });
+      catalog = result.catalog;
       skills = catalogToSkillMetas(catalog);
     }
   }

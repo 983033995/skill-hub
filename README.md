@@ -149,7 +149,7 @@ flowchart LR
 
 ## Current boundaries
 
-- **stdio plus authenticated Streamable HTTP MCP.** HTTP exposes three read-only runtime tools for trusted clients with custom Bearer headers; OAuth and public deployment are not delivered. [Hosting guide →](docs/ops/REMOTE_MCP.md)
+- **Local stdio MCP.** The current source removes the HTTP MCP hosting entry and command. Published v0.2.1 artifacts remain unchanged; a remote MCP URL is not provided. [Transport boundary →](docs/ops/REMOTE_MCP.md)
 - **A local read-only Web UI.** Loopback by default, unauthenticated. Managed writes stay in CLI. Markdown rendering uses a CDN with a plain-text fallback.
 - **A Skill manager, not an agent executor or knowledge-base manager.** It does not replace plugin permissions or run Skill scripts. Static audit is heuristic.
 - **No universal savings claim.** Native discovery, model billing and task quality require host-specific measurements. Draft evaluation labels are not a calibrated quality gate.

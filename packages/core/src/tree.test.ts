@@ -39,6 +39,23 @@ describe("Skill tree and real-world metadata", () => {
     await chmod(path.join(dest, "script"), 0o755);
     expect(await hashSkillTree(src)).not.toBe(await hashSkillTree(dest));
   });
+  it("excludes root .git metadata from canonical tree fingerprints", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "hub-tree-git-meta-"));
+    try {
+      await writeFile(path.join(root, "SKILL.md"), "skill");
+      const original = await hashSkillTree(root);
+      await mkdir(path.join(root, ".git", "objects"), { recursive: true });
+      await writeFile(path.join(root, ".git", "HEAD"), "ref: refs/heads/main\n");
+      await writeFile(path.join(root, ".git", "objects", "fixture"), "one");
+      expect(await hashSkillTree(root)).toBe(original);
+      expect(
+        (await inspectSkillTree(root)).entries.some((entry) => entry.path.startsWith(".git")),
+      ).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects escaping links, cycles and dangerous skill names", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "hub-tree-"));
     const src = path.join(root, "src");

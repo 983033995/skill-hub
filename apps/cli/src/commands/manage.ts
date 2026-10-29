@@ -6,8 +6,8 @@ import {
   manageSkills,
   readCatalog,
   resolveHubConfigPaths,
+  updateCatalog,
   upsertSkills,
-  writeCatalog,
   type ManagedAction,
 } from "@skill-hub/core";
 import { SkillHubError, getDefaultHubHome, hubLayout } from "@skill-hub/shared";
@@ -42,7 +42,8 @@ export async function runManage(options: {
     });
   const layout = hubLayout(getDefaultHubHome());
   const config = resolveHubConfigPaths(await loadHubConfig(options.configPath));
-  // 在任何文件写入前检查 catalog；损坏文件不能被当作空库覆盖。
+  // Validate existing catalog before changing canonical/state; updateCatalog
+  // still re-reads the latest snapshot under its lock when merging results.
   let catalog = createEmptyCatalog();
   if (options.action !== "list" && options.action !== "check-updates") {
     const exists = await lstat(layout.catalog).catch((err: NodeJS.ErrnoException) => {
@@ -108,8 +109,10 @@ export async function runManage(options: {
     dryRun,
   });
   if (!dryRun && result.skills.length) {
-    const next = upsertSkills(catalog, result.skills).catalog;
-    await writeCatalog(layout.catalog, next);
+    const { catalog: next } = await updateCatalog(
+      layout.catalog,
+      (current) => upsertSkills(current, result.skills).catalog,
+    );
     await appendHistoryBatch(
       layout.history,
       result.items

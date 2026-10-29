@@ -17,6 +17,16 @@ const projects = [
   "apps/mcp-server",
   "apps/web",
 ];
+const excludedSources = new Set([path.join("apps", "mcp-server", "src", "http.ts")]);
+
+export function isDistributionSource(relativePath) {
+  return (
+    relativePath.endsWith(".ts") &&
+    !relativePath.endsWith(".test.ts") &&
+    !relativePath.endsWith(".d.ts") &&
+    !excludedSources.has(relativePath)
+  );
+}
 
 async function filesIn(directory) {
   const files = [];
@@ -112,8 +122,8 @@ async function main() {
   // Only emit JS corresponding to current production sources; stale dist files cannot enter the tarball.
   for (const project of projects) {
     for (const source of await filesIn(path.join(root, project, "src"))) {
-      if (!source.endsWith(".ts") || source.endsWith(".test.ts") || source.endsWith(".d.ts"))
-        continue;
+      const sourcePath = path.relative(root, source);
+      if (!isDistributionSource(sourcePath)) continue;
       const relative = path.join(
         project,
         "dist",
@@ -143,7 +153,6 @@ async function main() {
   const bin = {
     "skill-hub": "apps/cli/dist/index.js",
     "skill-hub-mcp": "apps/mcp-server/dist/index.js",
-    "skill-hub-mcp-http": "apps/mcp-server/dist/http.js",
     "skill-hub-web": "apps/web/dist/index.js",
   };
   const manifest = {
@@ -192,7 +201,9 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}

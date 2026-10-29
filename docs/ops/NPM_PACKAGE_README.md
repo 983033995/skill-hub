@@ -19,7 +19,6 @@ For reproducible installation pin the version. To select another binary, use `np
 |---|---|
 | `skill-hub` | CLI; use `help` to discover commands |
 | `skill-hub-mcp` | Read-only stdio MCP; full by default, optional runtime |
-| `skill-hub-mcp-http` | Bearer-authenticated Streamable HTTP MCP; three runtime tools |
 | `skill-hub-web` | Local, unauthenticated read-only Web viewer |
 
 ## New isolated store
@@ -28,8 +27,8 @@ Set `SKILL_HUB_HOME` to a new absolute directory, then run `skill-hub init`. Use
 
 Configure stdio MCP hosts to execute `skill-hub-mcp` from the installed bin path. Set `SKILL_HUB_MCP_MODE=runtime` for the optional three-tool mode; this does not disable the host's native Skill discovery.
 
-For HTTP, inject `SKILL_HUB_HTTP_TOKEN` (at least 32 random Bearer-token characters) into the process environment, select the server-side `SKILL_HUB_HOME`, and run `skill-hub-mcp-http`. Default listener: `127.0.0.1:8788/mcp`. Every request requires `Authorization: Bearer <token>`. Exposing a non-loopback listener requires explicit `SKILL_HUB_HTTP_ALLOWED_HOSTS`. Use HTTPS ingress and persistent storage on a hosting platform. Static Bearer authentication is not OAuth or multi-tenant isolation.
+Current-source candidates provide CLI, stdio MCP and Web only. The HTTP MCP hosting command was withdrawn on 2026-10-29. Previously published v0.2.1 artifacts retain their original command set and bytes; this source change does not publish a replacement.
 
-The npm registry distributes the program; it does not run your HTTP service. Skill text remains untrusted task guidance and never authorizes script execution. Optional Jev transmits task queries/metadata only through the configured/requested provider route; default BM25 works without a model key. Usage observation is disabled unless explicitly configured.
+The npm registry distributes the program; it does not host a service. Skill text remains untrusted task guidance and never authorizes script execution. Optional Jev transmits task queries/metadata only through the configured/requested provider route; default BM25 works without a model key. Usage observation is disabled unless explicitly configured.
 
-See the source repository's [hosting guide](https://github.com/983033995/skill-hub/blob/main/docs/ops/REMOTE_MCP.md), [API](https://github.com/983033995/skill-hub/blob/main/docs/architecture/API.md), [security policy](https://github.com/983033995/skill-hub/blob/main/SECURITY.md), and [license](https://github.com/983033995/skill-hub/blob/main/LICENSE). Local candidates may contain changes not yet merged into main.
+See the source repository's [transport boundary](https://github.com/983033995/skill-hub/blob/main/docs/ops/REMOTE_MCP.md), [API](https://github.com/983033995/skill-hub/blob/main/docs/architecture/API.md), [security policy](https://github.com/983033995/skill-hub/blob/main/SECURITY.md), and [license](https://github.com/983033995/skill-hub/blob/main/LICENSE). Local candidates may contain changes not yet merged into main.

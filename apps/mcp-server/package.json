@@ -4,8 +4,7 @@
   "private": true,
   "type": "module",
   "bin": {
-    "skill-hub-mcp": "./dist/index.js",
-    "skill-hub-mcp-http": "./dist/http.js"
+    "skill-hub-mcp": "./dist/index.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

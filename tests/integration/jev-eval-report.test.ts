@@ -134,6 +134,98 @@ describe("opt-in Jev evaluation report output", () => {
     expect(aliasError).toMatchObject({ status: 1 });
     expect(String((aliasError as { stderr?: string }).stderr)).toContain('"code":"E_EVAL_OUTPUT"');
     expect(JSON.parse(await readFile(catalogPath, "utf8")).version).toBe(1);
+
+    const datasetBefore = await readFile(datasetPath, "utf8");
+    const datasetAlias = path.join(root, "dataset-alias");
+    await symlink(path.dirname(datasetPath), datasetAlias, "dir");
+    let datasetAliasError: unknown;
+    try {
+      execFileSync(
+        process.execPath,
+        [...baseArgs, "--preview-out", path.join(datasetAlias, path.basename(datasetPath))],
+        { cwd: repoRoot, encoding: "utf8", env: childEnv },
+      );
+    } catch (error) {
+      datasetAliasError = error;
+    }
+    expect(datasetAliasError).toMatchObject({ status: 1 });
+    expect(String((datasetAliasError as { stderr?: string }).stderr)).toContain(
+      '"code":"E_EVAL_OUTPUT"',
+    );
+    expect(await readFile(datasetPath, "utf8")).toBe(datasetBefore);
+  });
+
+  it("blocks live report aliases before reading API credentials or calling fetch", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skill-hub-jev-live-output-guard-"));
+    roots.push(root);
+    const dataset = JSON.parse(await readFile(datasetPath, "utf8")) as {
+      cases: Array<{ expectedAnyOf: string[] }>;
+    };
+    const skillNames = [...new Set(dataset.cases.flatMap((task) => task.expectedAnyOf))];
+    const catalogPath = path.join(root, "catalog.json");
+    await writeCatalog(
+      catalogPath,
+      buildCatalog(
+        skillNames.map((name) => ({
+          name,
+          description: `Synthetic description for ${name}.`,
+          path: `/synthetic/${name}`,
+          hash: `sha256:${"0".repeat(64)}`,
+          mtimeMs: 0,
+          keywords: [name],
+        })),
+      ),
+    );
+    const catalogBefore = await readFile(catalogPath, "utf8");
+    const datasetBefore = await readFile(datasetPath, "utf8");
+    const datasetAlias = path.join(root, "dataset-alias");
+    await symlink(path.dirname(datasetPath), datasetAlias, "dir");
+    const childEnv = {
+      PATH: process.env.PATH ?? "",
+      TYPESAFE_API_KEY: "synthetic-test-key",
+    };
+
+    for (const [index, outputPath] of [
+      catalogPath,
+      path.join(datasetAlias, path.basename(datasetPath)),
+    ].entries()) {
+      const markerPath = path.join(root, `fetch-called-${index}`);
+      const guardPath = path.join(root, `live-guards-${index}.mjs`);
+      await writeFile(
+        guardPath,
+        `import { writeFileSync } from "node:fs";\nconst env = process.env;\nObject.defineProperty(process, "env", { configurable: true, get() { return new Proxy(env, { get(target, key, receiver) { if (key === "TYPESAFE_API_KEY") throw new Error("API key read before output guard"); return Reflect.get(target, key, receiver); } }); } });\nglobalThis.fetch = async () => { writeFileSync(${JSON.stringify(markerPath)}, "called"); return new Response("{}", { status: 200, headers: { "content-type": "application/json" } }); };\n`,
+        "utf8",
+      );
+      let cliError: unknown;
+      try {
+        execFileSync(
+          process.execPath,
+          [
+            "--import",
+            guardPath,
+            runnerPath,
+            "--catalog",
+            catalogPath,
+            "--model",
+            "jev-test-model",
+            "--max-requests",
+            "1",
+            "--confirm-paid-requests",
+            "--confirm-skill-metadata-upload",
+            "--out",
+            outputPath,
+          ],
+          { cwd: repoRoot, encoding: "utf8", env: childEnv },
+        );
+      } catch (error) {
+        cliError = error;
+      }
+      expect(cliError).toMatchObject({ status: 1 });
+      expect(String((cliError as { stderr?: string }).stderr)).toContain('"code":"E_EVAL_OUTPUT"');
+      await expect(readFile(markerPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      expect(await readFile(catalogPath, "utf8")).toBe(catalogBefore);
+      expect(await readFile(datasetPath, "utf8")).toBe(datasetBefore);
+    }
   });
 
   it("preflights the report directory and target before any model call", async () => {

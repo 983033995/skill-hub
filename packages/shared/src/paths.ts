@@ -5,6 +5,7 @@
 
 import { homedir } from "node:os";
 import path from "node:path";
+import { lstat, realpath } from "node:fs/promises";
 import {
   CATALOG_FILENAME,
   CONFIG_FILENAME,
@@ -65,6 +66,45 @@ export function resolveAbsolutePath(
   }
 
   return path.resolve(cwd, trimmed);
+}
+
+/**
+ * Resolve an absolute path through symlinked existing ancestors, including when
+ * the final output (or some of its parents) does not exist yet.
+ */
+export async function canonicalizePath(
+  input: string,
+  options?: { cwd?: string; home?: string },
+): Promise<string> {
+  let current = resolveAbsolutePath(input, options);
+  const missingSegments: string[] = [];
+  while (true) {
+    try {
+      const existing = await realpath(current);
+      return path.join(existing, ...missingSegments);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT" && code !== "ENOTDIR") throw error;
+      try {
+        if ((await lstat(current)).isSymbolicLink()) {
+          throw new SkillHubError({
+            code: "E_PATH",
+            message: `无法解析路径中的符号链接: ${current}`,
+            details: { path: current },
+            cause: error,
+          });
+        }
+      } catch (statError) {
+        const statCode = (statError as NodeJS.ErrnoException).code;
+        if (statError instanceof SkillHubError) throw statError;
+        if (statCode !== "ENOENT" && statCode !== "ENOTDIR") throw statError;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) throw error;
+      missingSegments.unshift(path.basename(current));
+      current = parent;
+    }
+  }
 }
 
 /** 默认 `~/.skill-hub`，可被 `SKILL_HUB_HOME` 覆盖。 */

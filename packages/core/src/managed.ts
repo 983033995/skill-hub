@@ -14,8 +14,11 @@ import {
   mkdtemp,
   open,
   readFile,
+  readlink,
+  readdir,
   realpath,
   rename,
+  rmdir,
   rm,
   stat,
   unlink,
@@ -408,6 +411,66 @@ async function directoryExists(pathname: string): Promise<boolean> {
   }
 }
 
+async function rejectCanonicalGitMetadata(
+  skillPath: string,
+  name: string,
+  allowRoot = true,
+): Promise<void> {
+  const root = await realpath(skillPath);
+  async function visit(directory: string, ancestors: Set<string>): Promise<void> {
+    const resolved = await realpath(directory);
+    if (!isInside(root, resolved)) {
+      throw pathError("canonical Skill 内部链接越界", { name, path: directory });
+    }
+    if (ancestors.has(resolved)) {
+      throw pathError("canonical Skill 内部链接环路", { name, path: directory });
+    }
+    const nextAncestors = new Set(ancestors).add(resolved);
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const target = path.join(directory, entry.name);
+      if (entry.name === ".git") {
+        if (directory === root && allowRoot) {
+          const info = await lstat(target);
+          const reference = info.isSymbolicLink()
+            ? await readlink(target)
+            : info.isFile()
+              ? (await readFile(target, "utf8")).match(/^gitdir:\s*(.+)/)?.[1]?.trim()
+              : undefined;
+          if (reference) {
+            const absolute = path.resolve(root, reference);
+            let resolved = absolute;
+            try {
+              resolved = await realpath(absolute);
+            } catch (error) {
+              if (!isErrno(error, "ENOENT")) throw error;
+            }
+            if (isInside(root, absolute) || isInside(root, resolved)) {
+              throw conflictError("根 .git 引用 Skill 内容目录，拒绝替换其目标", { name });
+            }
+          }
+          continue;
+        }
+        throw conflictError("Skill 包含不受管的嵌套或备份 .git 元数据，拒绝替换", {
+          name,
+          path: target,
+        });
+      }
+      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+      let info;
+      try {
+        info = await stat(target);
+      } catch (error) {
+        if (isErrno(error, "ENOENT")) {
+          throw conflictError("canonical Skill 在检查期间发生变化", { name, path: target });
+        }
+        throw error;
+      }
+      if (info.isDirectory()) await visit(target, nextAncestors);
+    }
+  }
+  await visit(root, new Set());
+}
+
 async function inspectCanonicalSkill(
   canonicalRoot: string,
   name: string,
@@ -793,19 +856,6 @@ async function unlinkIfPresent(file: string): Promise<void> {
   }
 }
 
-async function finishTransaction(root: string, committed: boolean): Promise<void> {
-  try {
-    await removeGeneratedDirectory(root, ".managed-txn-");
-  } catch (error) {
-    throw new SkillHubError({
-      code: "E_SYNC",
-      message: committed ? "managed 已提交，但临时目录清理失败" : "managed 失败且临时目录清理失败",
-      details: { transactionRoot: root },
-      cause: error,
-    });
-  }
-}
-
 async function writeManagedLock(stateRoot: string, lock: ManagedLockFile): Promise<void> {
   const lockPath = safeChild(stateRoot, MANAGED_LOCK_FILENAME, "managed lock");
   const temporary = safeChild(
@@ -1019,10 +1069,20 @@ async function planAdopt(
 }
 
 function treeChanges(before: SkillTreeEntry[], after: SkillTreeEntry[]): ManagedFileChange[] {
+  const isGitMetadata = (entry: SkillTreeEntry) =>
+    entry.path === ".git" ||
+    entry.path.startsWith(`.git${path.posix.sep}`) ||
+    entry.path.startsWith(".git/");
   const previous = new Map(
-    before.filter((entry) => entry.path).map((entry) => [entry.path, entry]),
+    before
+      .filter((entry) => entry.path && !isGitMetadata(entry))
+      .map((entry) => [entry.path, entry]),
   );
-  const next = new Map(after.filter((entry) => entry.path).map((entry) => [entry.path, entry]));
+  const next = new Map(
+    after
+      .filter((entry) => entry.path && !isGitMetadata(entry))
+      .map((entry) => [entry.path, entry]),
+  );
   return [...new Set([...previous.keys(), ...next.keys()])].sort().flatMap((filePath) => {
     const a = previous.get(filePath);
     const b = next.get(filePath);
@@ -1108,6 +1168,7 @@ async function planSourceMigration(
   }
   const existing = await inspectCanonicalSkill(canonicalRoot, name);
   if (!existing) throw pathError("来源迁移要求 canonical Skill 存在", { name });
+  await rejectCanonicalGitMetadata(existing.path, name);
   if (existing.treeHash !== previousLock.treeHash) {
     throw conflictError("检测到 canonical 本地修改，拒绝来源迁移", { name });
   }
@@ -1196,6 +1257,7 @@ async function planUpdate(
           actualTreeHash: existing.treeHash,
         });
       }
+      await rejectCanonicalGitMetadata(existing.path, name);
       const resolved = await sourceForLockedSkill(name, sourceLock);
       cleanups.push(resolved.cleanup);
       const [before, after] = await Promise.all([
@@ -1253,6 +1315,7 @@ async function planRollback(
       details: { name },
     });
   }
+  await rejectCanonicalGitMetadata(existing.path, name);
   if (existing.treeHash !== currentLock.treeHash) {
     throw conflictError("检测到 canonical Skill 全目录本地修改，拒绝 rollback", {
       name,
@@ -1330,6 +1393,7 @@ async function planRollback(
       details: { name, path: batchReal },
     });
   }
+  await rejectCanonicalGitMetadata(backupReal, name, false);
   const backupHash = await hashSkillTree(backupReal);
   if (backupHash !== previousLock.treeHash) {
     throw new SkillHubError({
@@ -1387,6 +1451,27 @@ async function copySkillTree(source: string, destination: string): Promise<void>
     dereference: true,
     filter: (entry) => path.basename(entry) !== ".git",
   });
+}
+
+async function pathExists(target: string): Promise<boolean> {
+  try {
+    await lstat(target);
+    return true;
+  } catch (error) {
+    if (isErrno(error, "ENOENT")) return false;
+    throw error;
+  }
+}
+
+/** Move root metadata opaquely, including worktree files and symlinks; never dereference it. */
+async function moveRootGitMetadata(source: string, destination: string): Promise<void> {
+  const sourceGit = path.join(source, ".git");
+  if (!(await pathExists(sourceGit))) return;
+  const destinationGit = path.join(destination, ".git");
+  if (await pathExists(destinationGit)) {
+    throw conflictError("恢复目标已包含 .git 元数据，保留两份内容", { path: destinationGit });
+  }
+  await rename(sourceGit, destinationGit);
 }
 
 function batchName(): string {
@@ -1524,7 +1609,11 @@ async function readManagedRollbackLock(
   return { version: 1, skills };
 }
 
-async function removeGeneratedDirectory(root: string | undefined, marker: string): Promise<void> {
+async function removeGeneratedDirectory(
+  root: string | undefined,
+  marker: string,
+  trees: Map<string, string>,
+): Promise<void> {
   if (!root) return;
   if (!path.basename(root).startsWith(marker)) {
     throw new SkillHubError({
@@ -1533,13 +1622,41 @@ async function removeGeneratedDirectory(root: string | undefined, marker: string
       details: { root },
     });
   }
-  await rm(root, { recursive: true, force: true });
+  // Delete only known payload snapshots after revalidation. Unknown/concurrently
+  // edited content and any Git metadata must remain available for manual recovery.
+  for (const [tree, expected] of trees) {
+    if (!(await pathExists(tree))) continue;
+    if (!isInside(root, tree) || !(await directoryExists(tree))) {
+      throw conflictError("事务快照不是受管目录，保留恢复证据", { path: tree });
+    }
+    await rejectCanonicalGitMetadata(tree, path.basename(tree), false);
+    if ((await hashSkillTree(tree)) !== expected) {
+      throw conflictError("事务快照被并发修改，保留恢复证据", { path: tree });
+    }
+    await rm(tree, { recursive: true });
+  }
+  for (const name of ["staging", "rollback", "failed"]) {
+    try {
+      await rmdir(path.join(root, name));
+    } catch (error) {
+      if (!isErrno(error, "ENOENT")) throw error;
+    }
+  }
+  try {
+    await rmdir(root);
+  } catch (error) {
+    if (!isErrno(error, "ENOENT")) throw error;
+  }
 }
 
 async function stageChanges(
   canonicalRoot: string,
   plan: PlannedSkill[],
-): Promise<{ transactionRoot?: string; staged: Map<string, string> }> {
+): Promise<{
+  transactionRoot?: string;
+  staged: Map<string, string>;
+  cleanupTrees: Map<string, string>;
+}> {
   const changes = plan.filter(
     (entry) => entry.operation === "install" || entry.operation === "update",
   );
@@ -1547,11 +1664,12 @@ async function stageChanges(
     const source = await realpath(entry.source.skillPath);
     if (isInside(source, canonicalRoot)) throw pathError("canonical 不得位于 Skill 来源内部");
   }
-  if (changes.length === 0) return { staged: new Map() };
+  if (changes.length === 0) return { staged: new Map(), cleanupTrees: new Map() };
   const transactionRoot = await mkdtemp(path.join(canonicalRoot, ".managed-txn-"));
   const stagingRoot = safeChild(transactionRoot, "staging", "managed staging");
   await mkdir(stagingRoot, { recursive: false, mode: 0o700 });
   const staged = new Map<string, string>();
+  const cleanupTrees = new Map<string, string>();
   try {
     for (const entry of changes) {
       const stagedPath = safeChild(stagingRoot, entry.source.name, "managed staged skill");
@@ -1569,10 +1687,23 @@ async function stageChanges(
         });
       }
       staged.set(entry.source.name, stagedPath);
+      cleanupTrees.set(stagedPath, stagedHash);
     }
-    return { transactionRoot, staged };
+    return { transactionRoot, staged, cleanupTrees };
   } catch (error) {
-    await removeGeneratedDirectory(transactionRoot, ".managed-txn-");
+    try {
+      await removeGeneratedDirectory(transactionRoot, ".managed-txn-", cleanupTrees);
+    } catch (cleanupError) {
+      throw new SkillHubError({
+        code: "E_SYNC",
+        message: "managed staging 失败且清理不完整，保留事务目录",
+        details: {
+          transactionRoot,
+          originalError: asErrorMessage(error),
+          cleanupError: asErrorMessage(cleanupError),
+        },
+      });
+    }
     throw error;
   }
 }
@@ -1583,6 +1714,7 @@ async function recheckPlanBeforeReplace(
 ): Promise<void> {
   for (const entry of plan) {
     if (entry.existing) {
+      await rejectCanonicalGitMetadata(entry.destination, entry.source.name);
       const current = await inspectCanonicalSkill(canonicalRoot, entry.source.name);
       if (!current || !entry.existing || current.treeHash !== entry.existing.treeHash) {
         throw conflictError("canonical Skill 在更新期间发生变化", { name: entry.source.name });
@@ -1603,23 +1735,99 @@ async function recheckPlanBeforeReplace(
 interface AppliedChange {
   entry: PlannedSkill;
   previousPath?: string;
+  stagedPath?: string;
+  published?: boolean;
+  previousMoved?: boolean;
 }
 
-async function rollbackChanges(transactionRoot: string, applied: AppliedChange[]): Promise<void> {
+async function rollbackChanges(
+  transactionRoot: string,
+  applied: AppliedChange[],
+  cleanupTrees: Map<string, string>,
+): Promise<void> {
   const failedRoot = safeChild(transactionRoot, "failed", "managed failed staging");
-  await mkdir(failedRoot, { recursive: true, mode: 0o700 });
+  await ensureDirectDirectory(failedRoot, "managed failed staging");
   for (const [index, change] of [...applied].reverse().entries()) {
     const destination = change.entry.destination;
-    if (await directoryExists(destination)) {
-      const failedPath = safeChild(
-        failedRoot,
-        `${index}-${change.entry.source.name}`,
-        "managed failed Skill",
-      );
-      await rename(destination, failedPath);
+    const failedPath = safeChild(
+      failedRoot,
+      `${index}-${change.entry.source.name}`,
+      "managed failed Skill",
+    );
+    if (await pathExists(failedPath)) {
+      throw conflictError("恢复目录已存在同名内容，保留事务与恢复证据", {
+        name: change.entry.source.name,
+        path: failedPath,
+      });
     }
+
     if (change.previousPath) {
+      // A pre-replace check/rename can fail before this target was touched.
+      if (!change.previousMoved) continue;
+      const oldTreeExists = await directoryExists(change.previousPath);
+      const newTreeExists = await directoryExists(destination);
+      if (!oldTreeExists) {
+        throw conflictError("恢复期间原 canonical 目录缺失，保留事务与恢复证据", {
+          name: change.entry.source.name,
+          path: change.previousPath,
+        });
+      }
+      if (newTreeExists) {
+        if (!change.published) {
+          throw conflictError("恢复期间 canonical 目标被并发创建，保留事务与恢复证据", {
+            name: change.entry.source.name,
+            path: destination,
+          });
+        }
+        const currentHash = await hashSkillTree(destination);
+        if (currentHash !== change.entry.source.lock.treeHash) {
+          throw conflictError("恢复期间 canonical Skill 被并发修改，保留事务与恢复证据", {
+            name: change.entry.source.name,
+            expectedTreeHash: change.entry.source.lock.treeHash,
+            actualTreeHash: currentHash,
+          });
+        }
+        await rejectCanonicalGitMetadata(destination, change.entry.source.name);
+        await moveRootGitMetadata(destination, change.previousPath);
+        await rename(destination, failedPath);
+        cleanupTrees.set(failedPath, change.entry.source.lock.treeHash);
+      } else if (change.published) {
+        throw conflictError("恢复期间 canonical 目标被并发删除，保留事务与恢复证据", {
+          name: change.entry.source.name,
+          path: destination,
+        });
+      }
+      if (!change.published && change.stagedPath) {
+        await moveRootGitMetadata(change.stagedPath, change.previousPath);
+      }
       await rename(change.previousPath, destination);
+    } else {
+      const targetExists = await pathExists(destination);
+      if (targetExists && !change.published) {
+        throw conflictError("恢复期间 canonical 目标被并发创建，保留事务与恢复证据", {
+          name: change.entry.source.name,
+          path: destination,
+        });
+      }
+      if (!targetExists && change.published) {
+        throw conflictError("恢复期间 canonical 目标被并发删除，保留事务与恢复证据", {
+          name: change.entry.source.name,
+          path: destination,
+        });
+      }
+      if (targetExists) {
+        const currentHash = await hashSkillTree(destination);
+        if (currentHash !== change.entry.source.lock.treeHash) {
+          throw conflictError("恢复期间 canonical Skill 被并发修改，保留事务与恢复证据", {
+            name: change.entry.source.name,
+            expectedTreeHash: change.entry.source.lock.treeHash,
+            actualTreeHash: currentHash,
+          });
+        }
+        await rejectCanonicalGitMetadata(destination, change.entry.source.name, false);
+        await rename(destination, failedPath);
+        cleanupTrees.set(failedPath, change.entry.source.lock.treeHash);
+      }
     }
   }
 }
@@ -1639,16 +1847,19 @@ async function applyPlan(
     return resultFromPlan(action, true, canonicalRoot, lockPath, plan);
   }
 
-  const { transactionRoot, staged } = await stageChanges(canonicalRoot, plan);
+  const { transactionRoot, staged, cleanupTrees } = await stageChanges(canonicalRoot, plan);
   const applied: AppliedChange[] = [];
   let committed = false;
   let preserveTransaction = false;
+  let failed = false;
+  let failure: unknown;
+  let result: ManageSkillsResult | undefined;
   let backups: { backupDir?: string; backupPaths: Map<string, string> } = {
     backupPaths: new Map(),
   };
   try {
     await recheckPlanBeforeReplace(canonicalRoot, plan);
-    if (action === "update" || action === "migrate-source")
+    if (action === "update" || action === "migrate-source" || action === "rollback")
       await recheckManagedLock(stateRoot, currentLock);
     backups = await backupExistingSkills(stateRoot, plan, currentLock);
     const rollbackRoot = transactionRoot
@@ -1668,14 +1879,29 @@ async function applyPlan(
         });
       }
       if (entry.operation === "install") {
+        const change: AppliedChange = { entry, stagedPath, published: false };
+        applied.push(change);
         await rename(stagedPath, entry.destination);
-        applied.push({ entry });
+        change.published = true;
         continue;
       }
       const previousPath = safeChild(rollbackRoot!, entry.source.name, "managed rollback Skill");
+      const change: AppliedChange = { entry, previousPath, stagedPath, published: false };
+      applied.push(change);
+      await recheckPlanBeforeReplace(canonicalRoot, [entry]);
       await rename(entry.destination, previousPath);
-      applied.push({ entry, previousPath });
+      change.previousMoved = true;
+      cleanupTrees.set(previousPath, entry.existing!.treeHash);
+      await rejectCanonicalGitMetadata(previousPath, entry.source.name);
+      if ((await hashSkillTree(previousPath)) !== entry.existing!.treeHash) {
+        throw conflictError("canonical Skill 在替换期间发生变化，保留事务与恢复证据", {
+          name: entry.source.name,
+          path: previousPath,
+        });
+      }
+      await moveRootGitMetadata(previousPath, stagedPath);
       await rename(stagedPath, entry.destination);
+      change.published = true;
     }
     if (action === "migrate-source") {
       await recheckPlanBeforeReplace(canonicalRoot, plan);
@@ -1685,11 +1911,11 @@ async function applyPlan(
         }
       }
     }
-    if (action === "update" || action === "migrate-source")
+    if (action === "update" || action === "migrate-source" || action === "rollback")
       await recheckManagedLock(stateRoot, currentLock);
     await writeManagedLock(stateRoot, nextLock);
     committed = true;
-    const result = await resultFromPlan(
+    result = await resultFromPlan(
       action,
       false,
       canonicalRoot,
@@ -1697,14 +1923,15 @@ async function applyPlan(
       plan,
       backups.backupPaths,
     );
-    return result;
   } catch (error) {
+    failed = true;
+    failure = error;
     if (!committed && transactionRoot && applied.length) {
       try {
-        await rollbackChanges(transactionRoot, applied);
+        await rollbackChanges(transactionRoot, applied, cleanupTrees);
       } catch (rollbackError) {
         preserveTransaction = true;
-        throw new SkillHubError({
+        failure = new SkillHubError({
           code: "E_SYNC",
           message: "managed 更新失败且恢复不完整，保留事务目录与备份",
           details: {
@@ -1716,11 +1943,28 @@ async function applyPlan(
         });
       }
     }
-    throw error;
-  } finally {
-    if (transactionRoot && !preserveTransaction)
-      await finishTransaction(transactionRoot, committed);
   }
+  if (transactionRoot && !preserveTransaction) {
+    try {
+      await removeGeneratedDirectory(transactionRoot, ".managed-txn-", cleanupTrees);
+    } catch (cleanupError) {
+      throw new SkillHubError({
+        code: "E_SYNC",
+        message: committed
+          ? "managed 已提交，但事务清理不完整，保留恢复证据"
+          : "managed 失败且事务清理不完整，保留恢复证据",
+        details: {
+          committed,
+          transactionRoot,
+          backupDir: backups.backupDir,
+          ...(failed ? { originalError: asErrorMessage(failure) } : {}),
+          cleanupError: asErrorMessage(cleanupError),
+        },
+      });
+    }
+  }
+  if (failed) throw failure;
+  return result!;
 }
 
 async function resultFromPlan(

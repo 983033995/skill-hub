@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, rename, rm } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rename, rm, open, lstat, unlink } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { SkillHubError, resolveAbsolutePath } from "@skill-hub/shared";
@@ -128,15 +128,88 @@ export async function readCatalog(filePath: string): Promise<Catalog> {
 
 export async function writeCatalog(filePath: string, catalog: Catalog): Promise<void> {
   const abs = resolveAbsolutePath(filePath);
-  await mkdir(path.dirname(abs), { recursive: true });
+  await withCatalogLock(abs, async () => {
+    let existed = true;
+    try {
+      await lstat(abs);
+    } catch (error) {
+      if (!isErrno(error, "ENOENT")) throw error;
+      existed = false;
+    }
+    await writeCatalogFile(abs, catalog, existed);
+  });
+}
+
+/** Serialize catalog read-modify-write operations and merge against the latest on-disk value. */
+export async function updateCatalog(
+  filePath: string,
+  update: (current: Catalog, exists: boolean) => Catalog | Promise<Catalog>,
+): Promise<{ previousCatalog: Catalog; catalog: Catalog; existed: boolean }> {
+  const abs = resolveAbsolutePath(filePath);
+  return withCatalogLock(abs, async () => {
+    let existed = true;
+    try {
+      await lstat(abs);
+    } catch (error) {
+      if (!isErrno(error, "ENOENT")) throw error;
+      existed = false;
+    }
+    const current = existed ? await readCatalog(abs) : createEmptyCatalog();
+    const catalog = await update(current, existed);
+    if (catalog !== current) await writeCatalogFile(abs, catalog, existed);
+    return { previousCatalog: current, catalog, existed };
+  });
+}
+
+async function withCatalogLock<T>(filePath: string, work: () => Promise<T>): Promise<T> {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  const lockPath = `${filePath}.lock`;
+  let handle;
+  try {
+    handle = await open(lockPath, "wx", 0o600);
+  } catch (error) {
+    if (isErrno(error, "EEXIST")) {
+      throw new SkillHubError({
+        code: "E_CONFLICT",
+        message: `另一个 catalog 写入正在运行: ${filePath}`,
+        details: { path: filePath, lockPath },
+      });
+    }
+    throw error;
+  }
+  try {
+    return await work();
+  } finally {
+    await handle.close();
+    await unlink(lockPath);
+  }
+}
+
+async function writeCatalogFile(
+  abs: string,
+  catalog: Catalog,
+  preserveExistingMode = true,
+): Promise<void> {
   const body = `${JSON.stringify(catalog, null, 2)}\n`;
   const temporary = `${abs}.${randomUUID()}.tmp`;
+  let mode = 0o600;
+  if (preserveExistingMode) {
+    try {
+      mode = (await lstat(abs)).mode & 0o777;
+    } catch (error) {
+      if (!isErrno(error, "ENOENT")) throw error;
+    }
+  }
   try {
-    await writeFile(temporary, body, { encoding: "utf8", flag: "wx" });
+    await writeFile(temporary, body, { encoding: "utf8", mode, flag: "wx" });
     await rename(temporary, abs);
   } finally {
     await rm(temporary, { force: true });
   }
+}
+
+function isErrno(error: unknown, code: string): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }
 
 function validateCatalog(value: unknown, source: string): Catalog {

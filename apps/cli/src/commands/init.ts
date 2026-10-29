@@ -2,9 +2,23 @@ import { access, readFile, mkdir, writeFile } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createEmptyCatalog, writeCatalog } from "@skill-hub/core";
+import { createEmptyCatalog, updateCatalog } from "@skill-hub/core";
 import { getDefaultHubHome, hubLayout } from "@skill-hub/shared";
 import { printJson, printLines } from "../output.js";
+
+async function exists(target: string): Promise<boolean> {
+  try {
+    await access(target, fsConstants.F_OK);
+    return true;
+  } catch (error) {
+    if (isMissingPath(error)) return false;
+    throw error;
+  }
+}
+
+function isMissingPath(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
 
 export async function runInit(options: { json: boolean; force: boolean }): Promise<number> {
   const layout = hubLayout(getDefaultHubHome());
@@ -15,7 +29,8 @@ export async function runInit(options: { json: boolean; force: boolean }): Promi
     try {
       await access(dir, fsConstants.F_OK);
       skipped.push(dir);
-    } catch {
+    } catch (error) {
+      if (!isMissingPath(error)) throw error;
       await mkdir(dir, { recursive: true });
       created.push(dir);
     }
@@ -23,13 +38,13 @@ export async function runInit(options: { json: boolean; force: boolean }): Promi
 
   // config.yaml
   let configAction = "skipped";
-  try {
-    await access(layout.config, fsConstants.F_OK);
+  const configExists = await exists(layout.config);
+  if (configExists) {
     if (options.force) {
       await writeDefaultConfig(layout.config);
       configAction = "overwritten";
     }
-  } catch {
+  } else {
     await writeDefaultConfig(layout.config);
     configAction = "created";
     created.push(layout.config);
@@ -37,14 +52,16 @@ export async function runInit(options: { json: boolean; force: boolean }): Promi
 
   // catalog.json
   let catalogAction = "skipped";
-  try {
-    await access(layout.catalog, fsConstants.F_OK);
+  const catalogExists = await exists(layout.catalog);
+  if (catalogExists) {
     if (options.force) {
-      await writeCatalog(layout.catalog, createEmptyCatalog());
+      await updateCatalog(layout.catalog, () => createEmptyCatalog());
       catalogAction = "overwritten";
     }
-  } catch {
-    await writeCatalog(layout.catalog, createEmptyCatalog());
+  } else {
+    await updateCatalog(layout.catalog, (current, alreadyExists) =>
+      alreadyExists ? current : createEmptyCatalog(),
+    );
     catalogAction = "created";
     created.push(layout.catalog);
   }
@@ -78,15 +95,16 @@ async function writeDefaultConfig(target: string): Promise<void> {
     path.resolve(process.cwd(), "configs/agents/default.yaml"),
   ];
   for (const c of candidates) {
+    let template: string;
     try {
-      await access(c, fsConstants.R_OK);
-      await mkdir(path.dirname(target), { recursive: true });
-      const template = await readFile(c, "utf8");
-      await writeFile(target, template.replaceAll("~/.skill-hub", getDefaultHubHome()), "utf8");
-      return;
-    } catch {
-      // try next
+      template = await readFile(c, "utf8");
+    } catch (error) {
+      if (isMissingPath(error)) continue;
+      throw error;
     }
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, template.replaceAll("~/.skill-hub", getDefaultHubHome()), "utf8");
+    return;
   }
   const fallback = `version: 1
 canonical_dir: ~/.skill-hub/skills

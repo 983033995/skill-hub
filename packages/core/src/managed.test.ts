@@ -2,8 +2,11 @@ import {
   access,
   cp,
   mkdir,
+  lstat,
   mkdtemp,
   readFile,
+  readdir,
+  readlink,
   realpath,
   rm,
   symlink,
@@ -115,6 +118,131 @@ describe("manageSkills", () => {
     expect(lock.skills.alpha?.treeHash).toMatch(/^sha256:[0-9a-f]{64}$/);
     const canonicalReal = await realpath(workspace.canonical);
     expect(result.skills.every((skill) => skill.path.startsWith(canonicalReal))).toBe(true);
+  });
+
+  it.each(["directory", "file", "symlink"] as const)(
+    "preserves canonical root .git %s through update and rollback without publishing source metadata",
+    async (kind) => {
+      const workspace = await createWorkspace();
+      const source = await writeSkill(workspace.source, "alpha", { script: "old" });
+      await mkdir(path.join(source, ".git"));
+      await writeFile(path.join(source, ".git", "HEAD"), "source metadata");
+      await manageSkills(installOptions(workspace));
+      const installedGit = path.join(workspace.canonical, "alpha", ".git");
+      expect(await fileExists(installedGit)).toBe(false);
+      const externalGit = path.join(workspace.root, "external-git");
+      await mkdir(externalGit);
+      await writeFile(path.join(externalGit, "HEAD"), "external metadata");
+      if (kind === "directory") {
+        await mkdir(installedGit);
+        await writeFile(path.join(installedGit, "HEAD"), "canonical metadata");
+      } else if (kind === "file") {
+        await writeFile(installedGit, "gitdir: ../../external-git\n");
+      } else {
+        await symlink(externalGit, installedGit);
+      }
+      const original = await lstat(installedGit);
+      const readMetadata = () =>
+        kind === "directory"
+          ? readFile(path.join(installedGit, "HEAD"), "utf8")
+          : kind === "file"
+            ? readFile(installedGit, "utf8")
+            : readlink(installedGit);
+      const metadata = await readMetadata();
+      await writeFile(path.join(source, "scripts", "run.sh"), "new");
+      const preview = await manageSkills({
+        action: "update",
+        canonicalDir: workspace.canonical,
+        stateDir: workspace.state,
+      });
+      expect(preview.items[0]!.changes!.some((change) => change.path.includes(".git"))).toBe(false);
+      const updated = await manageSkills({
+        action: "update",
+        canonicalDir: workspace.canonical,
+        stateDir: workspace.state,
+        dryRun: false,
+        planToken: preview.planToken,
+      });
+      expect(await readMetadata()).toBe(metadata);
+      expect((await lstat(installedGit)).ino).toBe(original.ino);
+      expect(await fileExists(path.join(updated.items[0]!.backupPath!, ".git"))).toBe(false);
+      await manageSkills({
+        action: "rollback",
+        names: ["alpha"],
+        backupPath: updated.items[0]!.backupPath!,
+        canonicalDir: workspace.canonical,
+        stateDir: workspace.state,
+        dryRun: false,
+      });
+      expect(await readMetadata()).toBe(metadata);
+      expect((await lstat(installedGit)).ino).toBe(original.ino);
+      expect(
+        await readFile(path.join(workspace.canonical, "alpha", "scripts", "run.sh"), "utf8"),
+      ).toBe("old");
+      expect(await readdir(workspace.canonical)).toEqual(["alpha"]);
+      expect(await readFile(path.join(externalGit, "HEAD"), "utf8")).toBe("external metadata");
+    },
+  );
+
+  it.each(["file", "symlink"] as const)(
+    "rejects a root .git %s referencing payload that an update would remove",
+    async (kind) => {
+      const workspace = await createWorkspace();
+      const source = await writeSkill(workspace.source, "alpha", { script: "old" });
+      await mkdir(path.join(source, ".git-data"));
+      await writeFile(path.join(source, ".git-data", "HEAD"), "keep internal git metadata");
+      await manageSkills(installOptions(workspace));
+      const skill = path.join(workspace.canonical, "alpha");
+      if (kind === "symlink") await symlink(".git-data", path.join(skill, ".git"));
+      else await writeFile(path.join(skill, ".git"), "gitdir: .git-data\n");
+      await rm(path.join(source, ".git-data"), { recursive: true });
+      const lock = await readFile(path.join(workspace.state, MANAGED_LOCK_FILENAME), "utf8");
+      await expect(
+        manageSkills({
+          action: "update",
+          canonicalDir: workspace.canonical,
+          stateDir: workspace.state,
+        }),
+      ).rejects.toMatchObject({ code: "E_CONFLICT" });
+      expect(await readFile(path.join(skill, ".git-data", "HEAD"), "utf8")).toBe(
+        "keep internal git metadata",
+      );
+      expect(await readFile(path.join(workspace.state, MANAGED_LOCK_FILENAME), "utf8")).toBe(lock);
+      expect(await readdir(workspace.canonical)).toEqual(["alpha"]);
+    },
+  );
+
+  it("rejects nested canonical .git before both update and a valid rollback, preserving its contents", async () => {
+    const workspace = await createWorkspace();
+    await writeSkill(workspace.source, "alpha", { script: "old", attachment: "guide" });
+    await manageSkills(installOptions(workspace));
+    await writeFile(path.join(workspace.source, "alpha", "scripts", "run.sh"), "new");
+    const updated = await applyPreviewedUpdate({
+      action: "update",
+      canonicalDir: workspace.canonical,
+      stateDir: workspace.state,
+    });
+    const nestedGit = path.join(workspace.canonical, "alpha", "references", ".git");
+    await mkdir(nestedGit);
+    await writeFile(path.join(nestedGit, "HEAD"), "keep nested metadata");
+    await expect(
+      manageSkills({
+        action: "update",
+        canonicalDir: workspace.canonical,
+        stateDir: workspace.state,
+      }),
+    ).rejects.toMatchObject({ code: "E_CONFLICT" });
+    await expect(
+      manageSkills({
+        action: "rollback",
+        names: ["alpha"],
+        backupPath: updated.items[0]!.backupPath!,
+        canonicalDir: workspace.canonical,
+        stateDir: workspace.state,
+        dryRun: false,
+      }),
+    ).rejects.toMatchObject({ code: "E_CONFLICT" });
+    expect(await readFile(path.join(nestedGit, "HEAD"), "utf8")).toBe("keep nested metadata");
   });
 
   it("updates scripts and attachments, while preserving a unique backup of the old tree", async () => {

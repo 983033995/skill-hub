@@ -10,7 +10,12 @@ import {
   toSkillHubError,
   type SkillScope,
 } from "@skill-hub/shared";
-import { agentSkillSources, loadHubConfig, resolveHubConfigPaths } from "@skill-hub/core";
+import {
+  agentSkillSources,
+  loadHubConfig,
+  resolveExplicitAgentSkillSource,
+  resolveHubConfigPaths,
+} from "@skill-hub/core";
 import { flagBool, flagString, parseArgs } from "./args.js";
 import { printJson, printLines } from "./output.js";
 import { runDoctor } from "./commands/doctor.js";
@@ -218,6 +223,13 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
             .map((s) => s.trim())
             .filter(Boolean)
         : (configured.sources ?? []).filter((s) => s.enabled).map((s) => s.id);
+      const sourceMappings = agentSkillSources(configured);
+      for (const requested of sources) {
+        const mapping = resolveExplicitAgentSkillSource(requested, configured);
+        if (mapping && !sourceMappings.some((source) => source.id === mapping.id)) {
+          sourceMappings.push(mapping);
+        }
+      }
       // 默认物化到 canonical；--no-materialize 仅写 catalog 元数据
       const noMaterialize = flagBool(flags, "no-materialize");
       return runIngest({
@@ -229,7 +241,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         catalogPath: flagString(flags, "catalog"),
         materialize: !noMaterialize,
         forceMaterialize: flagBool(flags, "force"),
-        sourceMappings: agentSkillSources(configured),
+        sourceMappings,
         canonicalDir: configured.canonical_dir,
         backupDir: configured.backup_dir,
       });

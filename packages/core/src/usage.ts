@@ -121,7 +121,7 @@ function validEvent(value: unknown): value is SkillUsageEvent {
   if (e.name !== undefined && !validName(e.name)) return false;
   if (
     e.candidates !== undefined &&
-    (!Array.isArray(e.candidates) || e.candidates.length > 100 || !e.candidates.every(validName))
+    (!Array.isArray(e.candidates) || !e.candidates.every(validName))
   )
     return false;
   if (!e.success) return typeof e.errorCode === "string" && /^E_[A-Z_]+$/.test(e.errorCode);

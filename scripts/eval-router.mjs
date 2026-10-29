@@ -2,12 +2,14 @@
 import console from "node:console";
 import process from "node:process";
 import assert from "node:assert/strict";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { readCatalog, catalogHash, catalogToSkillMetas } from "../packages/core/dist/index.js";
 import { Bm25Router } from "../packages/router/dist/bm25.js";
+import { canonicalizePath } from "../packages/shared/dist/paths.js";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -20,8 +22,14 @@ if (!catalogArgument || catalogArgument.startsWith("-")) {
   process.exit();
 }
 const catalogPath = path.resolve(catalogArgument);
+const datasetPath = path.join(repo, "evals/router/recall.v1.json");
+const outputPath = outputArgument ? path.resolve(outputArgument) : undefined;
+if (outputPath) {
+  await assertReportDoesNotOverwriteInput(outputPath, [catalogPath, datasetPath]);
+  await preflightReportPath(outputPath);
+}
 const catalog = await readCatalog(catalogPath);
-const dataset = JSON.parse(await readFile(path.join(repo, "evals/router/recall.v1.json"), "utf8"));
+const dataset = JSON.parse(await readFile(datasetPath, "utf8"));
 const skills = catalogToSkillMetas(catalog);
 const names = new Set(skills.map((skill) => skill.name));
 for (const task of dataset.cases)
@@ -146,10 +154,8 @@ for (const { variant, router, legacy, buildMs } of [
     rows,
   });
 }
-if (outputArgument) {
-  const outputPath = path.resolve(outputArgument);
-  await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, JSON.stringify(report, null, 2) + "\n");
+if (outputPath) {
+  await writeReportAtomically(outputPath, JSON.stringify(report, null, 2) + "\n");
   console.log(JSON.stringify({ ok: true, outputPath, variants: report.variants }, null, 2));
 } else {
   console.log(JSON.stringify(report, null, 2));
@@ -159,4 +165,54 @@ function percentile(values, quantile) {
   if (!values.length) return null;
   const sorted = [...values].sort((a, b) => a - b);
   return Number(sorted[Math.max(0, Math.ceil(quantile * sorted.length) - 1)].toFixed(3));
+}
+
+async function assertReportDoesNotOverwriteInput(outputPath, inputPaths) {
+  const canonicalOutputPath = await canonicalizePath(outputPath);
+  for (const inputPath of inputPaths) {
+    if (canonicalOutputPath === (await canonicalizePath(inputPath))) {
+      throw Object.assign(new Error("Evaluation report must not overwrite an input file"), {
+        code: "E_EVAL_OUTPUT",
+      });
+    }
+  }
+}
+
+async function preflightReportPath(outputPath) {
+  const directory = path.dirname(outputPath);
+  await mkdir(directory, { recursive: true });
+  await assertRegularReportTarget(outputPath);
+  const probe = path.join(directory, `.router-eval-preflight-${randomUUID()}.tmp`);
+  try {
+    await writeFile(probe, "", { encoding: "utf8", flag: "wx", mode: 0o600 });
+  } finally {
+    await rm(probe, { force: true });
+  }
+}
+
+async function writeReportAtomically(outputPath, serialized) {
+  await assertRegularReportTarget(outputPath);
+  const directory = path.dirname(outputPath);
+  await mkdir(directory, { recursive: true });
+  const temporary = path.join(directory, `.router-eval-${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporary, serialized, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await rename(temporary, outputPath);
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
+async function assertRegularReportTarget(outputPath) {
+  try {
+    const existing = await lstat(outputPath);
+    if (existing.isSymbolicLink() || !existing.isFile()) {
+      throw Object.assign(
+        new Error("Evaluation report output must be a regular file, not a symlink or directory"),
+        { code: "E_EVAL_OUTPUT" },
+      );
+    }
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
 }

@@ -193,7 +193,8 @@ try {
     path.join(source, "references/proof.txt"),
     `Marker: ${updated}\nValues: 20 and 22\n`,
   );
-  await cli("update", "hub-proof", "--apply", "--yes");
+  const updatePlan = await cli("update", "hub-proof");
+  await cli("update", "hub-proof", "--plan-token", updatePlan.planToken, "--apply", "--yes");
   await scenario(
     "updated-new-session",
     "使用 Skill Hub 的 hub-proof 技能完成验证，只使用 Hub 工具。",

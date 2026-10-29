@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-26 · Version: 0.2.1 published on npm via GitHub Actions OIDC
+Updated: 2026-10-29 · Version: latest registry release 0.2.1; current source has unreleased safety fixes and HTTP withdrawal
 
 The [2026-10-26 completion review](COMPLETION_REVIEW_20261026.md) records the source/test/documentation audit and remaining acceptance gaps.
 
@@ -11,7 +11,7 @@ This page is the current overview. Older Phase documents record development hist
 - Managed local/public GitHub install/adopt/update/list and source locks.
 - Explicit single-Skill `migrate-source` previews and token-confirmed migration to a same-content local/GitHub source, preserving the canonical directory and old-lock rollback evidence. Update-check failures include the recorded source and a migration hint; no upstream is guessed.
 - Read-only `check-updates` with independent local/upstream status, per-item errors and invocation-scoped Git snapshots; partial `list` results retain healthy entries and report `complete=false` (CLI exit 3). Apply protections remain strict; checks are not frozen update approval plans.
-- Managed `update` previews include file/directory/mode diffs and a version-bound `planToken`; applying updates requires that token plus explicit confirmation, and rechecks the plan under the state lock. This tightens the v0.x write interface; see ADR 0011.
+- Managed `update` previews include file/directory/mode diffs and a version-bound `planToken`; applying updates requires that token plus explicit confirmation, and rechecks the plan under the state lock. Update/rollback preserve root `.git` objects while rejecting references into replaceable Skill payloads; failed publication restores the original tree/metadata and known transaction snapshots are cleaned after verification. This tightens the v0.x write interface; see ADR 0011.
 - Scope/provenance, taxonomy, persistent BM25 and freshness checks.
 - Opt-in local search/read observation (separate CLI/MCP/Web/library sources and body/continuation/attachment calls), read-only `usage` reports and static `context-cost` estimates. Disabled by default; no query/body logging, no billing claims. See [usage and context budget](../ops/USAGE_AND_CONTEXT.md).
 - Read-only CLI/MCP progressive text and attachment access, explicit lightweight `available_skills` manifest export, static audit and local Web UI.
@@ -36,7 +36,7 @@ Current local evidence also includes [50-task draft recall evaluation and Native
 
 ## Known limitations
 
-- Streamable HTTP MCP is implemented and locally verified with a real SDK client and synthetic stores; `pnpm mcp:http` serves a Bearer-authenticated, stateless three-tool runtime. Public hosting, OAuth and target host-app acceptance are pending. Web REST remains separate. See [remote MCP](../ops/REMOTE_MCP.md).
+- Current source is stdio-only: the HTTP MCP entry, remote adapter and distribution command were removed on 2026-10-29. Already-published v0.2.1 bytes remain unchanged; no new package or endpoint is published by this source change. Web REST remains separate. See [remote MCP](../ops/REMOTE_MCP.md).
 
 - `restore --apply` replaces destination contents; review the manifest, retain a separate copy and test in a sandbox. Directory/lock and catalog/index changes are not one cross-package transaction.
 - `route --include-body` is currently reserved; use explicit read/fetch tools.

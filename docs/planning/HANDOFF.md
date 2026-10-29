@@ -15,7 +15,7 @@ Read HARNESS, AGENTS, [STATUS](STATUS.md), [completion review](COMPLETION_REVIEW
 
 ## Remaining work and permissions
 
-P11-05 needs Owner-reviewed labels, an explicit catalog and explicit paid-request/metadata-upload authorization. WorkBuddy/Qoder model/GUI acceptance remains separate from config and MCP evidence. Remote MCP now has a locally tested Streamable HTTP source entry (P26); actual hosting, OAuth and host-app acceptance remain pending. Write-capable Web management, background upgrades, portable whole-lock relocation and host-wide guaranteed savings are not complete.
+P11-05 needs Owner-reviewed labels, an explicit catalog and explicit paid-request/metadata-upload authorization. WorkBuddy/Qoder model/GUI acceptance remains separate from config and MCP evidence. The HTTP MCP source entry and distribution command were withdrawn on 2026-10-29; current source MCP is stdio only. Published v0.2.1 artifacts and historical hosting records remain unchanged. Write-capable Web management, background upgrades, portable whole-lock relocation and host-wide guaranteed savings are not complete.
 
 Do not rerun paid jobs or change personal hosts because a script exists. No production Skill upgrades, directory/config changes, service restarts or metadata uploads are authorized by this handoff alone.
 

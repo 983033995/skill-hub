@@ -1,7 +1,10 @@
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { afterEach, describe, expect, it } from "vitest";
 import { SkillHubError } from "./errors.js";
 import {
+  canonicalizePath,
   expandUserPath,
   getDefaultConfigPath,
   getDefaultHubHome,
@@ -12,6 +15,13 @@ import {
 } from "./paths.js";
 
 const FAKE_HOME = "/Users/tester";
+const temporaryRoots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
+  );
+});
 
 describe("expandUserPath / resolveAbsolutePath", () => {
   it("expands ~ and ~/...", () => {
@@ -32,6 +42,37 @@ describe("expandUserPath / resolveAbsolutePath", () => {
   it("resolves relative against cwd", () => {
     const abs = resolveAbsolutePath("foo/bar", { cwd: "/tmp/proj", home: FAKE_HOME });
     expect(abs).toBe(path.resolve("/tmp/proj", "foo/bar"));
+  });
+});
+
+describe("canonicalizePath", () => {
+  it("resolves existing and missing paths through a symlinked parent", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skill-hub-canonical-path-"));
+    temporaryRoots.push(root);
+    const actualDirectory = path.join(root, "actual");
+    const aliasDirectory = path.join(root, "alias");
+    const actualFile = path.join(actualDirectory, "catalog.json");
+    await mkdir(actualDirectory);
+    await writeFile(actualFile, "fixture", "utf8");
+    await symlink(actualDirectory, aliasDirectory, "dir");
+
+    expect(await canonicalizePath(path.join(aliasDirectory, "catalog.json"))).toBe(
+      await realpath(actualFile),
+    );
+    expect(await canonicalizePath(path.join(aliasDirectory, "nested", "report.json"))).toBe(
+      path.join(await realpath(actualDirectory), "nested", "report.json"),
+    );
+  });
+
+  it("fails closed on an unresolved symlink in a missing output path", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skill-hub-canonical-broken-link-"));
+    temporaryRoots.push(root);
+    const brokenLink = path.join(root, "broken");
+    await symlink(path.join(root, "missing-target"), brokenLink, "dir");
+
+    await expect(canonicalizePath(path.join(brokenLink, "report.json"))).rejects.toMatchObject({
+      code: "E_PATH",
+    });
   });
 });
 

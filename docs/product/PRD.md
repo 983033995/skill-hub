@@ -368,18 +368,21 @@ context-cost分别报告name/description元数据、当前SKILL.md全文和可�
 
 P23-02验收：Web主导航提供“使用与预算”，展示使用率、首段次数、续读/附件/候选、最近读取、元数据/全文/首段预算。使用率按所选日期/来源的当前全库首段读取次数作固定分母，分类/关键词/观测状态过滤不改变分母；支持使用率升降序、最近读取、正文Token升降序与名称排序，先全局过滤排序再分页，未知末尾。未记录历史不伪造0%，无分母不算百分比，小样本有提示；默认MCP，Web人工浏览可显式选择。合成API回归与ego-browser桌面/375px交互验收，不开启真实使用记录、不执行Skill内容。
 
-## FR-P26 — Streamable HTTP 托管
+## FR-P26 — Streamable HTTP 托管（2026-10-29 撤回）
 
-- 在保留stdio行为的前提下，提供独立、默认loopback的HTTP MCP入口，供可信客户端以URL和Bearer token访问服务端Skill库。
-- HTTP固定search/read/files；所有请求鉴权，校验Host与可选Origin，不信任转发头；限制正文1MiB、并发16、响应30秒。剥除服务端路径诊断，保留授权正文。
-- 采用无会话POST/SSE，GET/DELETE返回405；完成/断开清理资源，关闭进程时有界排空。健康探测只代表存活。
-- 以真实SDK客户端和合成库验证握手、中文检索、分页/hash/附件、错误与越界、鉴权和HTTP限制，并回归编译stdio。
-- 本轮不含OAuth、多租户、npm发行、个人Skill上传或公网部署。选定目标账号/主机、数据范围与宿主后单独验收。见[托管指南](../ops/REMOTE_MCP.md)。
+按用户要求从当前源码移除 HTTP MCP 传输、配置和部署入口；MCP 继续使用 stdio，Web REST 不作为远端 MCP。已发布 npm 0.2.1 的历史字节不修改；不新建公网服务、迁移用户 Skill 或发布新版本。见[当前远端边界](../ops/REMOTE_MCP.md)。
 
 ### FR-P26-02 — npm命令分发
 
-提供单个候选包及CLI/stdio/HTTP/Web四个命令，安装时无需内部workspace包已发布；源码保留private、无install hook。以真实tarball安装、npm exec、配置模板/profile及MCP协议验收，CI加入独立包门禁。包内容/安装成功与注册库发布分开记录；发布需有效身份、包名权限、精确tarball与registry integrity回执。npm不承担HTTP运行托管。
+提供单个候选包及CLI/stdio/Web三个命令，安装时无需内部workspace包已发布；源码保留private、无install hook。以真实tarball安装、npm exec、配置模板/profile及MCP协议验收，CI加入独立包门禁。包内容/安装成功与注册库发布分开记录；发布需有效身份、包名权限、精确tarball与registry integrity回执。npm不承担远端运行托管；HTTP命令已从当前源码候选移除，已有发布记录保留。
 
 ### FR-P26-04 — 自动发布验收
 
 Owner追加要求后续通过GitHub Actions自动发布。采用npm Trusted Publishing OIDC，不存长期token；标签对应版本、提交已合入main、全部CI/包验收通过后才发布，人工workflow dispatch只dry-run。首次以0.2.1真实发布/官方registry integrity/新prefix安装验收证明链路；后续按版本标签触发。不得将信任配置或dry-run当已发行。
+
+## 2026-10-29 审查修复验收补充
+
+- 失败恢复应覆盖旧目录移动、根 `.git` 移动、发布与来源锁写入失败；原内容/元数据和来源锁保持一致，不能把普通失败误判为并发变更而跳过恢复。
+- 根 `.git` 的目录、worktree 文件与外部链接按原对象保留；指向 Skill 内部内容的根 `.git` 引用及 canonical 嵌套 `.git` 在替换前拒绝。成功事务清理已知且未变的快照；检测到未知/修改内容保留证据并显式报错。
+- manifest 与离线/在线评测的输出不得覆盖其输入 catalog、dataset 或 manifest 使用的配置，路径别名同样拒绝；在线检查先于凭据读取和网络请求。
+- 显式内置来源 ID 在已有 Agent 配置时使用已配置路径，盘点去重与默认导入范围不扩大；usage 对单事件大小范围内超过100项的搜索仍完整记录候选，并只计算一次搜索。

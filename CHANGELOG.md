@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### HTTP MCP withdrawal (2026-10-29)
+
+- Remove the HTTP MCP entry, remote adapter and HTTP distribution command from current source and future package candidates. Keep CLI, stdio full/runtime, local Web, npm packaging and OIDC release automation.
+- Existing npm 0.2.0/0.2.1 artifacts and release records remain unchanged. No new registry version or hosted endpoint is created by this source change; the release notes below remain historical records.
+
+### Review safety fixes (2026-10-29)
+
+- Restore managed failure recovery at each rename/publication stage; preserve root Git metadata during update/rollback and reject references into replaceable Skill payloads.
+- Clean only verified transaction snapshots, retaining concurrent edits and reporting cleanup failures instead of silently keeping old trees after every successful update.
+- Reject manifest/evaluation output paths that alias their input catalog, dataset or active manifest configuration before any writes or paid-evaluation requests.
+- Resolve explicitly selected built-in source IDs through existing Agent paths; adapt OpenCode acceptance updates to preview tokens and retain complete search observations above 100 candidates within the existing event-size limit.
+
 ## 0.2.1 (2026-10-26)
 
 - Automate stable tag releases through GitHub Actions/npm OIDC after full CI, tag/main ancestry checks, exact package acceptance and official registry integrity/install verification.

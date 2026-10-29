@@ -6,7 +6,15 @@ import { runManage } from "../../apps/cli/src/commands/manage.js";
 import { runSync } from "../../apps/cli/src/commands/sync.js";
 import { runIndex } from "../../apps/cli/src/commands/index-cmd.js";
 import { parseArgs } from "../../apps/cli/src/args.js";
-import { readCatalog, loadHubConfig, catalogToSkillMetas, manageSkills } from "@skill-hub/core";
+import {
+  buildCatalog,
+  readCatalog,
+  loadHubConfig,
+  catalogToSkillMetas,
+  manageSkills,
+  updateCatalog,
+  type SkillMeta,
+} from "@skill-hub/core";
 import { createBackup, verifySync } from "@skill-hub/sync";
 import { createBm25Router } from "@skill-hub/router";
 
@@ -93,6 +101,67 @@ it("CLI install → catalog/index → backup → sync → update preserves sourc
   await expect(runSync(syncOptions)).rejects.toThrow();
   await expect(loadHubConfig(path.join(root, "missing-config"))).rejects.toThrow();
 });
+it("managed CLI update merges catalog entries written after its initial snapshot", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "hub-managed-catalog-race-"));
+  const home = path.join(root, "hub");
+  const canonical = path.join(root, "canonical");
+  const source = path.join(root, "source");
+  const configPath = path.join(root, "config.yaml");
+  vi.stubEnv("SKILL_HUB_HOME", home);
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  await mkdir(source, { recursive: true });
+  await mkdir(path.join(source, "alpha"), { recursive: true });
+  await writeFile(
+    path.join(source, "alpha", "SKILL.md"),
+    "---\nname: alpha\ndescription: alpha managed\n---\noriginal",
+  );
+  await writeFile(
+    configPath,
+    `version: 1\ncanonical_dir: ${canonical}\nindex_dir: ${root}/index\nbackup_dir: ${root}/backups\nagents: []\nsync:\n  mode: symlink\n`,
+  );
+  const options = {
+    action: "install" as const,
+    source,
+    json: true,
+    configPath,
+    apply: true,
+    yes: true,
+    dryRun: false,
+  };
+  expect(await runManage(options)).toBe(0);
+
+  await writeFile(
+    path.join(source, "alpha", "SKILL.md"),
+    "---\nname: alpha\ndescription: alpha updated\n---\nnext version",
+  );
+  const plan = await manageSkills({ action: "update", canonicalDir: canonical, stateDir: home });
+  const originalWriteCatalog = await import("@skill-hub/core").then((core) => core.writeCatalog);
+  const external: SkillMeta = {
+    name: "concurrent-entry",
+    description: "written by another catalog writer",
+    path: path.join(root, "external", "concurrent-entry"),
+    hash: "sha256:external",
+    mtimeMs: 0,
+  };
+  const updateSpy = vi.spyOn(await import("@skill-hub/core"), "updateCatalog");
+  updateSpy.mockImplementationOnce(async (filePath, update) => {
+    await originalWriteCatalog(filePath, buildCatalog([external]));
+    return updateCatalog(filePath, update);
+  });
+
+  expect(
+    await runManage({
+      ...options,
+      action: "update",
+      source: undefined,
+      planToken: plan.planToken,
+    }),
+  ).toBe(0);
+  const final = await readCatalog(path.join(home, "catalog.json"));
+  expect(Object.keys(final.skills).sort()).toEqual(["alpha", "concurrent-entry"]);
+  expect(final.skills.alpha?.description).toBe("alpha updated");
+});
+
 it("boolean flags do not consume command/source positionals", () => {
   const args = parseArgs(["--dry-run", "install", "owner/repo", "--skill", "alpha", "--yes"]);
   expect(args.command).toBe("install");

@@ -308,7 +308,7 @@
 
 | ID | 任务 | Status | Owner | 验收 |
 |----|------|--------|-------|------|
-| DELIVERY-01 | 整合 R1–R7、catalog 写锁与 HTTP MCP 移除，PR 合入 main | in_progress | codex | 本地57文件274测试与check:npm通过；原树85文件hash不变；等待实际PR三组CI/合并回执 |
+| DELIVERY-01 | 隔离整合 R1–R7、catalog 写锁与 HTTP MCP 移除并提交 PR | done | codex | 本地57文件274测试与check:npm通过；原树85文件hash不变；[PR #13](https://github.com/983033995/skill-hub/pull/13)已提交，CI/合并以该PR实际回执为准 |
 
 ## Managed 写入安全回归
 

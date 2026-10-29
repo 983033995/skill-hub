@@ -785,3 +785,8 @@ P24-02后续验收完成：用户回复“可以”明确授权仅重启4173本�
 - 本轮最终本地 build/typecheck/lint/eval:check/docs:check/smoke、改动代码Prettier和git diff --check通过。默认 pnpm test：57文件274项全部通过。此前与首次npm依赖安装并发执行时，compiled managed-plan-cli有一次5秒超时；单独用例通过，依赖安装完成后默认全测也全通过，未加长超时或跳过测试。
 - pnpm check:npm 已完成真实tarball/独立prefix安装验收：CLI/npm exec/init模板/profile、stdio SDK握手/分页/hash、Web资源与精确三个bin通过，候选92文件143081字节，published=false；HTTP命令和编译入口不在候选中。personalHubTouched=false、paidModelCalls=0；不会重写已发布0.2.1或创建标签。
 - 原工作树85个改动文件SHA-256与开工快照相同，原分支/暂存区保持。直接diff复核和独立只读审查完成；catalog文件本身symlink的旧替换语义仍非本轮新增支持，不把协作锁声明为对所有路径别名或非协作写入的强事务保证。下一步按main-integrity要求提交PR、实际三组CI与讨论检查后合并；当前这条不代表远端已通过或合并。
+
+### 2026-10-29 — PR #13 提交回执
+
+- 隔离分支以 c1a9931 提交安全修复与 HTTP MCP 撤回，已推送并创建 [PR #13](https://github.com/983033995/skill-hub/pull/13)，base main850aff6。PR包含58个明确暂存的源码/测试/文档文件，未包含outputs、个人Skill或凭据。
+- 实时回读main-integrity仍要求Linux Node20/22及macOS Node22三组检查、PR和讨论解决；当前PR可合并、无review讨论，初次读取时三组CI运行中。DELIVERY-01表示隔离整合和PR提交完成，远端CI/实际合并不在此提前宣称；后续以同一PR的实际状态和merge commit为证。

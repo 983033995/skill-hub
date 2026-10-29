@@ -802,3 +802,9 @@ P24-02后续验收完成：用户回复“可以”明确授权仅重启4173本�
 - 最终解析为TS5.9.3、ESLint/@eslint/js9.39.5、Vitest4.1.12、Node类型22.20.5、Prettier3.9.10和typescript-eslint8.72.0；主版本与原支持矩阵一致。共享types:[node]显式保留，tsconfig不注入DOM/测试全局。
 - 冻结安装、强制tsc -b --force、正常typecheck/build、lint、eval:check、docs:check（67 Markdown零坏链）、smoke、check:npm、修改配置Prettier与diff检查通过。全量57文件274项用maxWorkers=2全部通过；本机默认并发两轮均有managed-plan-cli/managed-check-cli的5秒超时，其余272项通过。未改超时/worker默认配置或跳过用例，远端CI仍按原默认pnpm test执行。
 - npm tarball独立prefix安装、CLI/npm exec/init模板/stdio SDK/Web与无HTTP命令验收通过，published=false、personalHubTouched=false、paidModelCalls=0，生成候选与上一已验收源码包字节一致。下一步fast-forward推回原PR4，不改主干、不force push、不恢复HTTP托管。
+
+### 2026-10-29 — PR #4 修复后的远端三组 CI 通过
+
+- 兼容修复以1fd522e fast-forward推回PR4原分支，没有force push。PR标题/说明已改为当前范围内的工具链更新与Node类型加载，不再冒称完成原七项主版本组合迁移。
+- [CI40834666134](https://github.com/983033995/skill-hub/actions/runs/40834666134) 对1fd522e的Ubuntu Node20、Ubuntu Node22、macOS Node22全部success，GitHub回读CLEAN；保留默认pnpm test、typecheck/build/lint/eval/docs/smoke/check:npm，未放宽超时或删除矩阵。该远端运行证明当前支持组合在原CI环境通过；原失败run40832894154继续保留其历史失败状态，不将旧run改写为成功。
+- PR4保持OPEN，未合入主干，也未发布npm/操作真实Hub或运行服务。CI-04关闭表示此CI修复与验证完成；后续合并需按PR保护规则和用户授权范围执行。

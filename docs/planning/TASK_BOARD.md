@@ -329,4 +329,4 @@
 
 | ID | 任务 | Status | Owner | 验收 |
 |----|------|--------|-------|------|
-| CI-04 | 复现40832894154并修复PR4工具链不兼容 | in_progress | codex | 精确依赖冻结安装、最小兼容修改、完整门禁和PR4新提交三组CI；不改变Node20/22运行边界 |
+| CI-04 | 复现40832894154并修复PR4工具链不兼容 | done | codex | 兼容范围内更新+显式Node类型；本地274项通过；PR4提交1fd522e的[三组CI40834666134](https://github.com/983033995/skill-hub/actions/runs/40834666134)全通过，默认pnpm test与check:npm保留；PR未合并 |

@@ -15,7 +15,7 @@
 
 - 已实现：受管安装/更新/回滚/同内容来源迁移、按需 MCP、Web 使用率与预算、主流 Agent 来源盘点。
 - 当前复核：见 [2026-10-26 完成情况审计](COMPLETION_REVIEW_20261026.md)；历史条目的测试数量与部署记录只描述当时状态。
-- 待完成：Owner 复核路由标签及显式 live Jev 授权；WorkBuddy/Qoder 模型/GUI 回归；Streamable HTTP已实现，公网部署/OAuth及自动升级仍未交付。
+- 待完成：Owner 复核路由标签及显式 live Jev 授权；WorkBuddy/Qoder 模型/GUI 回归；HTTP MCP已从当前源码撤回；已发布0.2.1历史包不变，自动升级仍未交付。
 - 生产 Skill、客户端配置和运行服务变更仍须按当前任务的显式授权范围执行。
 
 ---
@@ -299,7 +299,28 @@
 
 | ID | 任务 | Status | Owner | 验收 |
 |----|------|--------|-------|------|
-| P26-01 | 共享MCP处理器、独立HTTP入口和托管说明 | done | codex | 真实SDK/编译HTTP进程、SSE/中文检索/分页附件、鉴权与限制/断开超时回归；55文件251测试及完整门禁通过，公网部署另验 |
+| P26-01 | 共享MCP处理器、独立HTTP入口和托管说明（已撤回） | cancelled | codex | 2026-10-29按用户要求从源码撤回；以下为历史验收： 真实SDK/编译HTTP进程、SSE/中文检索/分页附件、鉴权与限制/断开超时回归；55文件251测试及完整门禁通过，公网部署另验 |
 | P26-02 | 单包npm发行准备及真实安装验收 | done | codex | 0.2.0候选、93文件/143114字节；真实npm安装/exec及CLI/stdio/HTTP/Web验收，保留workspace private；本地门禁通过 |
 | P26-03 | npm注册库发布与回读安装验收 | done | codex | @zhangheteng/skill-hub@0.2.0已发布，官方registry字节/integrity与新prefix CLI/stdio/HTTP/Web回读通过 |
 | P26-04 | GitHub Actions OIDC自动发布 | done | codex | npm精确信任绑定；v0.2.1 Action 40319985700发布/provenance/registry安装验收通过，main三组CI通过，无长期token |
+
+## 当前分支修复交付（2026-10-29）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| DELIVERY-01 | 隔离整合 R1–R7、catalog 写锁与 HTTP MCP 移除并提交 PR | done | codex | 本地57文件274测试与check:npm通过；原树85文件hash不变；[PR #13](https://github.com/983033995/skill-hub/pull/13)已提交，CI/合并以该PR实际回执为准 |
+
+## Managed 写入安全回归
+
+| ID     | 任务                                                        | Status | Owner | 验收                                                           |
+| ------ | ----------------------------------------------------------- | ------ | ----- | -------------------------------------------------------------- |
+| SEC-01 | 保留 canonical 根级 `.git` 并排除于 managed Skill tree hash | done | codex | FIX-01：目录/worktree 文件/外部链接原对象保留；内部引用与嵌套元数据拒绝替换；合成更新/回滚及故障回归通过 |
+| SEC-02 | 串行化 catalog read-modify-write，修正所有 CLI 写入入口     | done   | coder | managed/ingest/index rebuild/init 使用最新快照更新；冲突可重试 |
+| SEC-03 | 防止批量事务恢复清理覆盖 canonical 并发编辑 | done | codex | FIX-01：修正发布阶段标志；仅清理校验通过的已知事务树，并发编辑/.git 保留并显式报错；回归通过 |
+
+## 已审查修复（2026-10-29）
+
+| ID | 任务 | Status | Owner | 验收 |
+|----|------|--------|-------|------|
+| REVIEW-01 | 当前分支清理与R1–R7审查 | done | codex | 原工作树审查证据保留；七项问题进入FIX-01修复 |
+| FIX-01 | 修复R1–R7 | done | codex | 原工作树56文件271项通过；最新主干隔离整合由DELIVERY-01重新验收 |

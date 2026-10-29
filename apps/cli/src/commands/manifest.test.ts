@@ -136,4 +136,55 @@ describe("manifest command", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("refuses catalog and used-config outputs through direct and parent-symlink paths", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skill-hub-manifest-input-guard-"));
+    try {
+      const home = path.join(root, "hub");
+      const skillDirectory = path.join(home, "skills", "guard-fixture");
+      await mkdir(skillDirectory, { recursive: true });
+      await writeFile(
+        path.join(skillDirectory, "SKILL.md"),
+        "---\nname: guard-fixture\ndescription: Guard fixture\n---\nbody\n",
+        "utf8",
+      );
+      const catalogPath = path.join(home, "catalog.json");
+      await writeCatalog(catalogPath, buildCatalog(await scanSkills(path.join(home, "skills"))));
+      const configPath = path.join(home, "config.yaml");
+      const configText = `version: 1\ncanonical_dir: ${path.join(home, "skills")}\nindex_dir: ${path.join(home, "index")}\nbackup_dir: ${path.join(home, "backups")}\nagents: []\n`;
+      await writeFile(configPath, configText, "utf8");
+      const catalogText = await readFile(catalogPath, "utf8");
+      const hubAlias = path.join(root, "hub-alias");
+      await symlink(home, hubAlias, "dir");
+      vi.stubEnv("SKILL_HUB_HOME", home);
+      vi.stubEnv("SKILL_HUB_CONFIG", "");
+
+      for (const outputPath of [
+        catalogPath,
+        path.join(hubAlias, "catalog.json"),
+        configPath,
+        path.join(hubAlias, "config.yaml"),
+      ]) {
+        await expect(
+          runManifest({
+            json: true,
+            outputPath,
+            apply: true,
+            yes: true,
+            catalogPath,
+            configPath,
+          }),
+        ).rejects.toMatchObject({ code: "E_PATH" });
+        expect(await readFile(catalogPath, "utf8")).toBe(catalogText);
+        expect(await readFile(configPath, "utf8")).toBe(configText);
+      }
+
+      await expect(
+        runManifest({ json: true, outputPath: configPath, apply: true, yes: true }),
+      ).rejects.toMatchObject({ code: "E_PATH" });
+      expect(await readFile(configPath, "utf8")).toBe(configText);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

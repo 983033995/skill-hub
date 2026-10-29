@@ -43,7 +43,7 @@ export type { TakeoverRoot } from "./takeover.js";
 export { splitFrontmatter } from "./frontmatter.js";
 export { parseSkillMd } from "./parse.js";
 export { scanSkills } from "./scan.js";
-export { agentSkillSources } from "./agent-sources.js";
+export { agentSkillSources, resolveExplicitAgentSkillSource } from "./agent-sources.js";
 export {
   detectConflicts,
   effectiveSkillScope,
@@ -58,6 +58,7 @@ export {
   readCatalog,
   skillMetaToCatalogEntry,
   upsertSkills,
+  updateCatalog,
   writeCatalog,
 } from "./catalog.js";
 

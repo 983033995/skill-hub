@@ -108,6 +108,34 @@ it("aggregates calls by interface and phase, filters dates, and never invents bi
   expect((await readUsageReport({ file, now })).skills).toHaveLength(3);
 });
 
+it("accepts 101 search candidates but still enforces the per-event byte bound", async () => {
+  const { file } = await workspace();
+  const search: SkillUsageEvent = {
+    version: 1,
+    at: "2026-10-25T00:00:00Z",
+    origin: "mcp",
+    operation: "search",
+    success: true,
+    candidates: Array.from({ length: 101 }, (_, index) => `skill-${index}`),
+  };
+  await appendUsage(file, search);
+
+  await expect(
+    appendUsage(file, {
+      ...search,
+      candidates: Array.from(
+        { length: 300 },
+        (_, index) => `candidate-${String(index).padStart(5, "0")}-${"x".repeat(240)}`,
+      ),
+    }),
+  ).rejects.toMatchObject({ code: "E_CONFIG" });
+
+  const report = await readUsageReport({ file, now });
+  expect(report).toMatchObject({ complete: true, searchCalls: 1 });
+  expect(report.skills).toHaveLength(101);
+  expect(report.skills.every((skill) => skill.appearances === 1)).toBe(true);
+});
+
 it("retains healthy records beside corrupt, invalid and incomplete lines", async () => {
   const { file } = await workspace();
   await appendUsage(file, event());

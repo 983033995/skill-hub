@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
 import console from "node:console";
 import process from "node:process";
-import { execFile, spawn } from "node:child_process";
-import { once } from "node:events";
-import { createHash, randomBytes } from "node:crypto";
+import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
-import { setTimeout, clearTimeout } from "node:timers";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { Client } from "../apps/mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js";
 import { StdioClientTransport } from "../apps/mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.js";
-import { StreamableHTTPClientTransport } from "../apps/mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js";
 
 const exec = promisify(execFile);
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -155,6 +152,18 @@ async function main() {
     await readFile(path.join(installed, "package.json"), "utf8"),
   );
   assert.equal(installedManifest.version, report.version);
+  assert.deepEqual(Object.keys(installedManifest.bin), [
+    "skill-hub",
+    "skill-hub-mcp",
+    "skill-hub-web",
+  ]);
+  assert.deepEqual(installedManifest.bin, {
+    "skill-hub": "apps/cli/dist/index.js",
+    "skill-hub-mcp": "apps/mcp-server/dist/index.js",
+    "skill-hub-web": "apps/web/dist/index.js",
+  });
+  assert.ok(!contents.files.some((file) => file.path === "apps/mcp-server/dist/http.js"));
+  assert.ok(!JSON.stringify(installedManifest).includes("skill-hub-mcp-http"));
   const bin = (name) => path.join(trial, "node_modules/.bin", name);
   const cli = async (...args) =>
     JSON.parse(
@@ -249,69 +258,6 @@ async function main() {
   }
   checks.push("installed stdio binary: real SDK handshake/list/paging/hash");
 
-  const token = randomBytes(32).toString("hex");
-  const httpEnv = {
-    ...env,
-    SKILL_HUB_HTTP_TOKEN: token,
-    SKILL_HUB_HTTP_HOST: "127.0.0.1",
-    SKILL_HUB_HTTP_PORT: "0",
-  };
-  delete httpEnv.SKILL_HUB_HTTP_ALLOWED_HOSTS;
-  delete httpEnv.SKILL_HUB_HTTP_ALLOWED_ORIGINS;
-  const child = spawn(process.execPath, [bin("skill-hub-mcp-http")], {
-    cwd: work,
-    env: httpEnv,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  const exited = once(child, "exit");
-  const http = new Client({ name: "npm-http-acceptance", version: "1" });
-  try {
-    let diagnostics = "";
-    const endpoint = await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Installed HTTP startup timed out")), 5000);
-      child.once("error", (error) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
-      child.once("exit", () => {
-        clearTimeout(timeout);
-        reject(new Error("Installed HTTP exited before listening"));
-      });
-      child.stderr.on("data", (chunk) => {
-        diagnostics += chunk;
-        const match = diagnostics.match(/listening on 127\.0\.0\.1:(\d+)\/mcp/);
-        if (match) {
-          clearTimeout(timeout);
-          resolve(`http://127.0.0.1:${match[1]}/mcp`);
-        }
-      });
-    });
-    await http.connect(
-      new StreamableHTTPClientTransport(new URL(endpoint), {
-        requestInit: { headers: { Authorization: `Bearer ${token}` } },
-      }),
-    );
-    assert.equal((await http.listTools()).tools.length, 3);
-    assert.equal(
-      (
-        await toolJson(http, "skill_read", {
-          name: "npm-typescript-fixture",
-          file: "references/proof.txt",
-        })
-      ).body,
-      "npm attachment proof",
-    );
-    assert.equal((await fetch(endpoint)).status, 401);
-    assert.ok(!diagnostics.includes(token));
-    checks.push(
-      "installed HTTP symlink binary: authenticated real SDK calls, unauthorized rejection",
-    );
-  } finally {
-    await http.close();
-    if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
-    assert.deepEqual(await exited, [0, null]);
-  }
-
   // Test the installed Web factory and actual shipped static assets without leaving a server running.
   const webResult = await exec(
     process.execPath,
@@ -337,6 +283,7 @@ async function main() {
   );
   assert.equal(webResult.stdout, "");
   checks.push("installed Web module serves shipped HTML assets");
+  checks.push("package exposes CLI, stdio MCP, and Web bins; HTTP MCP is excluded");
   const acceptance = { ok: true, ...report, checks, personalHubTouched: false, paidModelCalls: 0 };
   await writeFile(path.join(root, "acceptance.json"), JSON.stringify(acceptance, null, 2) + "\n");
   console.log(JSON.stringify(acceptance, null, 2));

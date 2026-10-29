@@ -771,3 +771,22 @@ P24-02后续验收完成：用户回复“可以”明确授权仅重启4173本�
 - npm SLSA provenance已读取并核对：工作流路径、refs/tags/v0.2.1、main提交12d02317和GitHub-hosted builder/attempt1一致。实际Action产物93文件/144431字节，integrity记录在NPM_DISTRIBUTION.md；不拿其它本地打包器产物冒充同字节。
 - 先完整下载保存attempt1产物，再移除该次生成的远端artifact，为旧工作流重试保留同名输出空间；attempt2识别相同registry integrity并跳过发布，完整官方registry下载/哈希/新prefix CLI/npm exec/模板/profile/stdio/HTTP/Web回读成功，最终Action绿色。另一次本地官方registry回读也通过，无个人Hub和模型调用。
 - 后续可靠性修正：404元数据查询至多12次、15秒间隔；其它错误立即失败；artifact设置overwrite支持重跑。不移动tag、不覆盖npm版本。同步README/状态/任务板/路线图/发行回执；该收尾只改发行脚本/工作流和仓库文档，不改变已发布包的运行代码。
+
+### 2026-10-29 — 安全修复与 HTTP MCP 撤回的主干交付准备
+
+- 用户先要求盘点并移除 HTTP 托管、审查剩余修改，再授权修复 R1–R7；原工作树完成 managed 发布/恢复阶段、根 `.git` 保留与事务清理、导出输入保护、显式 Agent 来源、OpenCode 确认 token、101候选 usage 修复。原树默认全测56文件271项、build/typecheck/lint/eval/docs/smoke与改动代码格式/diff通过；只用合成数据，未改真实Hub/宿主/运行服务。
+- 用户随后授权提交PR并合入main。本轮从最新主干850aff6创建隔离分支，保留主干Vitest4、Actions7.1、npm0.2.1版本/白名单打包/OIDC发布自动化和历史回执，不直接推送分叉的旧分支或覆盖主干文档。原工作树85个未提交文件内容与hash单独保存，交付期间不改原树。
+- 按功能边界整合已验证代码和catalog协作写锁；HTTP MCP入口、remote exposure与HTTP命令从当前源码/候选撤回，stdio/full/runtime、本地Web REST和模型HTTP客户端保留。注册库已发布0.2.0/0.2.1字节和历史发布记录不变，不打tag或执行新发布。
+- API/PRD/ROADMAP、stdio/远端/npm指引和历史ADR区分当前能力与已撤回实现。隔离门禁、PR、远端三组CI与合并状态以本轮后续实际回执为准，不沿用原树通过数冒充主干整合验收。
+
+### 2026-10-29 — 主干整合本地门禁完成，准备 PR
+
+- 隔离基线为 origin/main850aff6，分支 codex/safety-stdio-review；修复整合保留主干 init 安装包模板相对路径、managed 写入前坏catalog检查和准确CLI help，避免将旧分支落后代码带回主干。主干已有的README/合成截图/版本0.2.1、锁文件、Vitest4、三组CI和OIDC发布工作流保持。
+- 本轮最终本地 build/typecheck/lint/eval:check/docs:check/smoke、改动代码Prettier和git diff --check通过。默认 pnpm test：57文件274项全部通过。此前与首次npm依赖安装并发执行时，compiled managed-plan-cli有一次5秒超时；单独用例通过，依赖安装完成后默认全测也全通过，未加长超时或跳过测试。
+- pnpm check:npm 已完成真实tarball/独立prefix安装验收：CLI/npm exec/init模板/profile、stdio SDK握手/分页/hash、Web资源与精确三个bin通过，候选92文件143081字节，published=false；HTTP命令和编译入口不在候选中。personalHubTouched=false、paidModelCalls=0；不会重写已发布0.2.1或创建标签。
+- 原工作树85个改动文件SHA-256与开工快照相同，原分支/暂存区保持。直接diff复核和独立只读审查完成；catalog文件本身symlink的旧替换语义仍非本轮新增支持，不把协作锁声明为对所有路径别名或非协作写入的强事务保证。下一步按main-integrity要求提交PR、实际三组CI与讨论检查后合并；当前这条不代表远端已通过或合并。
+
+### 2026-10-29 — PR #13 提交回执
+
+- 隔离分支以 c1a9931 提交安全修复与 HTTP MCP 撤回，已推送并创建 [PR #13](https://github.com/983033995/skill-hub/pull/13)，base main850aff6。PR包含58个明确暂存的源码/测试/文档文件，未包含outputs、个人Skill或凭据。
+- 实时回读main-integrity仍要求Linux Node20/22及macOS Node22三组检查、PR和讨论解决；当前PR可合并、无review讨论，初次读取时三组CI运行中。DELIVERY-01表示隔离整合和PR提交完成，远端CI/实际合并不在此提前宣称；后续以同一PR的实际状态和merge commit为证。

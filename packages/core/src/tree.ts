@@ -33,7 +33,7 @@ async function inspectTree(root: string, collectEntries: boolean) {
       if (collectEntries) entries.push({ path: relative, kind: "directory" });
       const next = new Set(ancestors).add(resolved);
       for (const name of (await readdir(file)).sort()) {
-        // Git 元数据不属于分发包；安装器也必须排除它。
+        // Canonical root .git is preserved separately but is not Skill payload; nested metadata is skipped too.
         if (name === ".git") continue;
         await visit(path.join(file, name), relative ? `${relative}/${name}` : name, next);
       }

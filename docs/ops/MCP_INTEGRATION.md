@@ -1,10 +1,10 @@
 # MCP integration
 
-Status: Active · Updated: 2026-10-26 · Transport: stdio + Streamable HTTP · Scope: read-only
+Status: Active · Updated: 2026-10-29 · Transport: stdio · Scope: read-only
 
 ## Remote access status
 
-The existing stdio entry remains compatible. `pnpm mcp:http` starts a separate authenticated Streamable HTTP endpoint with three runtime tools for trusted clients. OAuth and real public deployment remain pending. The local Web REST API is not MCP. See [REMOTE_MCP](REMOTE_MCP.md) for startup, headers, storage and acceptance requirements.
+The current source supports local stdio MCP. The HTTP MCP entry, hosting configuration and command were removed on 2026-10-29; published v0.2.1 artifacts remain unchanged. The local Web REST API is not MCP. See [REMOTE_MCP](REMOTE_MCP.md) for the current boundary.
 
 ## Build and connect
 

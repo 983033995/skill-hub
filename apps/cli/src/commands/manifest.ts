@@ -2,7 +2,14 @@ import { randomUUID } from "node:crypto";
 import { lstat, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { skillList } from "@skill-hub/router";
-import { SkillHubError } from "@skill-hub/shared";
+import {
+  SkillHubError,
+  canonicalizePath,
+  getDefaultConfigPath,
+  getDefaultHubHome,
+  hubLayout,
+  resolveAbsolutePath,
+} from "@skill-hub/shared";
 import { printJson, printLines } from "../output.js";
 
 const PAGE_SIZE = 100;
@@ -29,6 +36,18 @@ export async function runManifest(options: {
       code: "E_CONFIG",
       message: "写入 manifest 需要 --out <path>",
     });
+  }
+  if (outputPath) {
+    const catalogPath = options.catalogPath
+      ? resolveAbsolutePath(options.catalogPath)
+      : hubLayout(getDefaultHubHome()).catalog;
+    const configPath = options.configPath?.trim()
+      ? resolveAbsolutePath(options.configPath)
+      : getDefaultConfigPath();
+    await assertManifestOutputDoesNotOverwriteInput(outputPath, [
+      { label: "catalog", path: catalogPath },
+      { label: "config", path: configPath },
+    ]);
   }
 
   const skills: Array<{ name: string; description: string }> = [];
@@ -64,6 +83,22 @@ export async function runManifest(options: {
     ]);
   }
   return 0;
+}
+
+async function assertManifestOutputDoesNotOverwriteInput(
+  outputPath: string,
+  inputs: Array<{ label: string; path: string }>,
+): Promise<void> {
+  const canonicalOutput = await canonicalizePath(outputPath);
+  for (const input of inputs) {
+    if (canonicalOutput === (await canonicalizePath(input.path))) {
+      throw new SkillHubError({
+        code: "E_PATH",
+        message: `manifest 输出不能覆盖输入 ${input.label}`,
+        details: { path: outputPath, input: input.label },
+      });
+    }
+  }
 }
 
 export function renderAvailableSkillsManifest(

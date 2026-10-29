@@ -1,6 +1,6 @@
 # npm distribution and GitHub Actions publishing
 
-Status: 0.2.1 published through GitHub Actions OIDC · Updated: 2026-10-26
+Status: 0.2.1 published through GitHub Actions OIDC · Updated: 2026-10-29
 
 The source root and all workspaces remain `private: true`. Packaging creates a separate installable command package; it does not change npm credentials or upload anything. See [ADR 0014](../adr/0014-single-npm-distribution.md).
 
@@ -18,7 +18,7 @@ pnpm check:npm
 
 Only compiled JS corresponding to current production source files, Web assets, five explicit configuration templates, README/license/NOTICE and the generated manifest enter the package. Package imports resolve internal modules locally, so no `@skill-hub/*` registry package is needed. There are no install hooks, source maps, dev dependencies or personal Skills in this artifact. The existing SDK remains an external npm dependency; npm resolves its transitive dependencies at install time.
 
-Local acceptance uses only synthetic Skills and an isolated Hub. It verifies CLI version, actual npm exec, template/profile lookup from another cwd, local install/route/read, stdio SDK initialization and pagination/hash, the installed HTTP bin symlink with authentication, and shipped Web HTML. It contacts the public npm registry to install dependencies, but calls no model API and records no personal usage.
+Local acceptance uses only synthetic Skills and an isolated Hub. It verifies CLI version, actual npm exec, template/profile lookup from another cwd, local install/route/read, stdio SDK initialization and pagination/hash, absence of the HTTP bin/source from the current candidate, and shipped Web HTML. It contacts the public npm registry to install dependencies, but calls no model API and records no personal usage.
 
 ## Use a local tarball
 
@@ -27,7 +27,7 @@ npm install --prefix ./hub-trial /absolute/path/to/zhangheteng-skill-hub-0.2.1.t
 npm exec --offline --prefix ./hub-trial -- skill-hub version --json
 ```
 
-Commands: `skill-hub`, `skill-hub-mcp`, `skill-hub-mcp-http`, `skill-hub-web`. See the [package README](NPM_PACKAGE_README.md) and [HTTP hosting guide](REMOTE_MCP.md). Node >=20 and macOS/Linux are the intended baseline; Windows bin-shim/process acceptance remains unverified.
+Current-source commands: `skill-hub`, `skill-hub-mcp`, `skill-hub-web`. HTTP was withdrawn on 2026-10-29; existing v0.2.1 registry bytes remain unchanged. See the [package README](NPM_PACKAGE_README.md) and [transport boundary](REMOTE_MCP.md). Node >=20 and macOS/Linux are the intended baseline; Windows bin-shim/process acceptance remains unverified.
 
 ## Actual registry publication
 
@@ -37,7 +37,7 @@ Before uploading, establish a valid npm identity without putting tokens in chat/
 
 After publishing, run `pnpm check:npm --registry <absolute-tested-acceptance.json>`. It queries the registry for the exact name/version, compares `dist.integrity` to the tested tarball, installs that exact registry version into a fresh prefix, and repeats command/MCP acceptance without repacking. Only then report the npm URL/version as published. A tarball, local installation or Git commit is not publication evidence.
 
-No long-lived npm credential, paid hosting or public endpoint is created. HTTP hosting requires a separate selected host with HTTPS and persistent authorized Skill storage; npm only distributes the program.
+No long-lived npm credential, paid hosting or public endpoint is created. Current source no longer provides HTTP MCP hosting; npm only distributes the local CLI/stdio/Web program.
 
 ## GitHub Actions trusted publishing
 

@@ -46,7 +46,7 @@ skill-hub inventory \
 
 盘点还合并内置用户级 Agent 来源：DeepSeek Harness、OpenCode、Gemini CLI、Qoder、GitHub Copilot、Windsurf/Devin、Cline、Roo Code、Kilo Code。路径和官方依据见[环境配置](../ops/ENVIRONMENT.md#agent-mappings-versus-sources)。既有配置无需重写；显式同 ID source 优先，停用设置保留，已声明路径不重复追加。`--sources` 可过滤内置 ID；缺失根仍返回 missing，不创建目录。CLI 与 `skill_inventory` / `GET /api/inventory` 共用来源解析；MCP/Web 的 `agent` 参数按 ID 同时过滤目标和来源，scope 过滤继续生效。内置来源不加入同步目标，不能据盘点结果宣称宿主已完成 MCP 接入。
 
-显式 `ingest --sources <内置ID> --dry-run` 可预览导入；省略 `--sources` 时仍仅使用配置里显式启用的来源，不自动导入内置来源。takeover/backup/sync 的来源范围不变。库函数 `agentSkillSources(config, env?)` 返回合并来源而不修改 config；`skillInventorySummary` 另可传 `configPath` 做隔离查询，该路径选项不暴露为 HTTP/MCP 参数。
+显式 `ingest --sources <内置ID> --dry-run` 可预览导入；同 ID source 配置优先，即使该 ID 因已有 Agent 而从盘点来源去重，显式导入仍使用该 Agent 的配置路径（或占用预设路径的 Agent 路径），不会将 ID 当作当前目录下的同名文件夹。配置停用项不回退到其他预设路径；省略 `--sources` 时仍仅使用配置里显式启用的来源，不自动导入内置来源。takeover/backup/sync 的来源范围不变。库函数 `agentSkillSources(config, env?)` 返回合并来源而不修改 config；`skillInventorySummary` 另可传 `configPath` 做隔离查询，该路径选项不暴露为 HTTP/MCP 参数。
 
 **实现状态**：Done（Phase 1 + Phase 4 scope/source）
 
@@ -232,11 +232,10 @@ createExternalRouter // stdin/stdout 协议 + 降级 bm25
 
 ## 3. MCP 接口（Phase 3）
 
-支持stdio和独立Streamable HTTP入口。Web /api仍是REST。HTTP为无会话POST/SSE传输，固定runtime三个读取工具，每次请求校验Bearer token与Host/Origin；不提供OAuth。配置及部署限制见 [REMOTE_MCP](../ops/REMOTE_MCP.md)。
+当前源码仅支持 stdio MCP，入口 `apps/mcp-server/dist/index.js`。2026-10-29 按用户要求移除 HTTP MCP 入口、远端 exposure 与分发命令；Web `/api` 保持独立本机 REST，不能用作 MCP URL。既有 npm 0.2.1 发布字节不被修改，见 [REMOTE_MCP](../ops/REMOTE_MCP.md)。
 
-传输：**stdio MCP**入口`apps/mcp-server/dist/index.js`；**Streamable HTTP**入口`apps/mcp-server/dist/http.js`（`pnpm mcp:http`）。HTTP协议端点`POST /mcp`，鉴权存活探测`GET /healthz`；GET/DELETE `/mcp`返回405，无Session-Id或独立GET事件流。HTTP runtime读取移除服务端绝对路径元数据，搜索警告和工具失败只返回通用诊断；Skill正文/描述保持原样。
 
-`SKILL_HUB_MCP_MODE`可选`full`（默认、兼容下表11工具）或`runtime`（仅skill_search/skill_read/skill_files）；非法值报E_CONFIG，隐藏工具也不能直接调用。runtime默认Top-3/文本8000字符，搜索返回紧凑候选name/description/score/scope与索引警告/简化decision；读取返回和安全边界不变。`createSkillHubMcpServer({mode?, exposure?})`可供库调用；默认local，HTTP使用`mode: runtime, exposure: remote`并拒绝remote+full。`createSkillHubHttpServer`/`startSkillHubHttpServer`/`stopSkillHubHttpServer`提供HTTP生命周期（见ADR0013）。配置与开销计量见[MINIMAL_RUNTIME](../ops/MINIMAL_RUNTIME.md)。
+`SKILL_HUB_MCP_MODE`可选`full`（默认、兼容下表11工具）或`runtime`（仅skill_search/skill_read/skill_files）；非法值报E_CONFIG，隐藏工具也不能直接调用。runtime默认Top-3/文本8000字符，搜索返回紧凑候选name/description/score/scope与索引警告/简化decision；读取返回和安全边界不变。`createSkillHubMcpServer({mode?})`可供本机库调用；HTTP 生命周期接口不再提供。配置与开销计量见[MINIMAL_RUNTIME](../ops/MINIMAL_RUNTIME.md)。
 
 | Tool              | 参数                                                                                       | 返回                                |
 | ----------------- | ------------------------------------------------------------------------------------------ | ----------------------------------- |
@@ -361,9 +360,10 @@ skill-hub takeover [--include-plugins] [--out report.json]
 - 迁移默认 dry-run，返回 `previousSource`、`nextSource` 完整来源锁、空 `changes`、`sourceLockChanged` 和 `planToken`。指纹复用 update 的字段绑定，但使用独立 `skill-hub-migrate-source-plan-v1` 合同，不能与 update token 互换。apply 必须重复名称、source/ref 并带 token + apply/yes；缺/错格式 E_CONFIG，锁/目标/来源版本/位置漂移 E_CONFLICT。Git 来源仍需重新联网获取，不能离线套用预览。
 - 迁移在 state lock 内重新规划、确认并备份现有 Skill 与旧来源锁，返回可用于既有 rollback 的 `backupPath`；仅更新来源锁及后续 CLI catalog/history/index，不替换 canonical 目录。备份后重验 canonical、新来源 hash 与锁，失败保留恢复证据；同来源同版本是 noop，不创建新备份。rollback 可恢复旧来源锁，但不会让已失效的旧路径重新可访问。进程崩溃/断电、跨包事务边界同 update。
 - update 从锁中读取来源/ref；名字省略则更新全部已绑定技能，未绑定条目不伪造来源。任一目标本地完整目录偏离锁版本时整批预检失败。`update --ref` 拒绝隐式改跟踪分支。
-- update 预览返回 `planToken` 及每项 `changes[]`（path、added/removed/modified、before/after 的 kind/contentHash/executable，不含文件正文），包括空目录、文件类型和执行位变化；根条目和 `.git` 不列入差异。`sourceLockChanged` 与 current/upstream revision 单独报告来源元数据变化；Git commit 移动而 Skill 树相同可出现 `changes=[]`、action=noop、sourceLockChanged=true。
+- update 预览返回 `planToken` 及每项 `changes[]`（path、added/removed/modified、before/after 的 kind/contentHash/executable，不含文件正文），包括空目录、文件类型和执行位变化；根条目和 `.git` 不列入差异。canonical Skill 根级 `.git` 元数据在更新与回滚时按原对象移动保留（目录、worktree 文件或外部符号链接），不参与 treeHash、锁基线和预览差异；根 `.git` 链接或 gitdir 文件若引用 Skill 内部内容则拒绝替换，避免目标被更新删除。来源包中的 `.git` 不物化；canonical 已有嵌套 `.git` 或回滚备份中的 `.git` 会显式拒绝替换，保留原内容。`sourceLockChanged` 与 current/upstream revision 单独报告来源元数据变化；Git commit 移动而 Skill 树相同可出现 `changes=[]`、action=noop、sourceLockChanged=true。
 - update 实际写入在 core 要求 `ManageSkillsOptions.planToken`，CLI 对应 `--plan-token`；缺失/格式错误 E_CONFIG，重新获取上游并构建计划后指纹不符 E_CONFLICT。原始选择参数必须重复（或再次省略表示全部锁项）；目标集、canonical/state 真实位置、当前完整树、选中项旧/目标来源锁（含确切 Git commit/hash）均绑定在指纹中。名称顺序不影响同一集合；无关 Skill 在预览后正常更新不会使单项计划失效，但全集新增成员会改变全集计划。
 - token 是版本化 SHA-256 内容指纹，不是签名、权限或持久缓存；仍需 apply/yes，不设时间到期，仅当前状态完全匹配时可用。上游不可访问时不能离线套用 token。state lock 覆盖重新规划到应用/恢复；备份前与锁提交前复验当前锁语义，检测到非协作修改则拒绝覆盖并恢复目录。既有 staging/备份/替换前树校验继续生效；不承诺对同用户主动并发篡改、进程崩溃或断电自动恢复。详见 [ADR 0011](../adr/0011-managed-update-plan-binding.md)。
+- 事务发布状态在对应 rename 成功后更新；捕获到发布或来源锁写入失败时，恢复已移动的原目录及根 `.git`。成功或恢复完成后只清理 hash 仍匹配且不含 `.git` 的已知事务快照；未知内容、并发编辑或清理失败保留证据并报 E_SYNC。若错误详情 `committed=true`，目录/来源锁已提交，需检查保留的事务，不可把报错直接当作更新未发生。
 - `check-updates` 只读检查 managed lock 中的来源；省略名称即检查全部锁定项，不把 catalog 中未受管条目伪装成可升级。拒绝 `--apply`/`--yes` 与来源/ref 覆盖，不读取或改写 catalog/history/index/Agent 目录；GitHub 来源会联网克隆到临时目录并清理。同一次检查中相同 URL/ref 共用快照（包括失败结果），不使用持久缓存；沿用 Git 子进程 120 秒超时，串行执行且不自动重试。
 - 检查返回 `complete`、`issues[]` 及逐项 `localStatus`（clean/modified/missing/blocked/unmanaged）、`upstreamStatus`（changed/unchanged/unknown）、`updateAvailable`（true/false/null）、`applyBlocked`、`lockedTreeHash`、`currentTreeHash`、`sourceTreeHash`、`currentRevision`、`upstreamRevision`、`checkedAt` 与 `errors[]`。`applyBlocked=true` 表示当前本地状态不为 clean 或上游未知；false 也不是 apply 授权或确认计划。显式请求无来源锁的名称会返回 unmanaged/error 并使检查不完整，不证明该名称在磁盘存在；默认全量检查只枚举锁项。`currentRevision` 是已安装锁的 Git commit，不是本地修改的版本。local 来源的 revision 为 null；`updateAvailable` 比较锁基线与上游树，仓库 commit 移动但 Skill 树相同仍为 false。
 - 本地修改是已知状态，不使只读结果不完整，也不阻止查上游；实际 update/apply 仍拒绝覆盖。来源失败、目标缺失、扫描或清理失败会使 `complete=false`，失败查询保持 unknown/null，不能显示为最新。`checkedAt` 为该项观测结束时间，结果不是原子快照、确认计划或将来可安全 apply 的承诺。
@@ -371,6 +371,7 @@ skill-hub takeover [--include-plugins] [--out report.json]
 - list 返回实体 canonical 中的条目与来源状态：present/modified/unmanaged/missing/blocked；扫描/条目错误通过同一 `issues[]` 格式报告并保留健康条目，`complete=false`，不静默清除失效项。坏来源锁/schema/配置仍整体失败。两种只读命令均在输出不完整结果后退出 3，完整结果退出 0；JSON `dryRun=true`、`indexUpdated=false`。错误项含路径，私有 Hub 报告应留本地。list 不是全部未配置项目路径的扫描器。
 - update 成功时为每个旧 Skill 备份保存独立来源锁快照。`rollback` 一次接受一个 managed Skill 和之前 update/rollback 返回的精确 `items[].backupPath`；默认 dry-run，apply 必须 `--apply --yes`。它要求当前 canonical treeHash 与当前锁一致，且所选备份来自 `managed backups/<batch>/<name>`、批次侧车中的来源锁有效并与备份 treeHash 完全相等；旧版无快照备份、被修改的备份或本地已改动 Skill 均拒绝。成功 rollback 会把当前版本再备份，输出新的 backupPath，可用于反向回滚；过程只读取本地备份，不联网、不执行 Skill 脚本。
 - `managed-lock.json`：`version: 1`、`skills[name]: {type: local|github, path?|url?, ref?, commit?, subpath, overlayOf?, treeHash}`。`overlayOf` 是可选的 base Skill 名，旧锁缺省兼容。临时文件 + rename 更新；坏 JSON/schema 拒绝。安装器不在锁或错误详情中记录凭据 URL。
+- catalog 写入通过同目录 `<catalog>.lock` 排他锁串行。`updateCatalog(path, callback)` 在锁内重读最新 catalog 后执行合并并原子替换；CLI managed、ingest、index rebuild/init 使用该 read-modify-write 入口。直接 `writeCatalog(path, snapshot)` 仍表示整份替换，不应拿旧快照覆盖并发修改。锁竞争返回 E_CONFLICT，不自动排队重试；锁文件若因进程崩溃残留，需人工确认无写进程后清理。
 - 实际 managed 写入成功后 CLI 增量更新 catalog/history 并构建当前配置 index。若后续 catalog/index 失败，命令报错但已完成的目录/锁事务不会跨包自动回滚；用 `list` 检查，并运行 `index --rebuild` 恢复索引。
 - takeover 输出 summary、roots、skills（ready/import/conflict/blocked）、external、issues。只读取配置的 canonical/agents/sources；include-plugins 额外读取已知 Codex/Claude 缓存及 Codex .system。external 不进入独立 Skill 冲突合并。
 - Git dry-run 可克隆临时目录并清理；不写 Hub/canonical/Agent。Git 不执行仓库 scripts/hooks，不使用全局 Git 配置或继承 GIT_* 路径配置；本轮网络能力面向公开 GitHub。
@@ -411,7 +412,7 @@ skill-hub manifest [--out <path>] [--dry-run | --apply --yes] [--catalog path] [
 
 Server instructions 提供精确名直接 fetch、未知先 search/list、附件 files/read、按需续读及内容权限边界。MCP 不提供 install/update/执行脚本等写操作。
 
-`manifest` 导出 `<available_skills>` XML，供需要静态发现清单的项目级 Agent 使用。清单只含已加载 Skill 的 `name`、`description` 和 Hub `skill_search`/`skill_read`/`skill_files` 使用提示，不包含正文或路径；会分页覆盖整个 catalog。未指定 `--out` 时输出清单到 stdout；指定 `--out` 时默认只预览、不写文件。写入必须同时提供 `--out <path> --apply --yes`，以同目录临时文件加 rename 原子替换普通文件；拒绝目录和符号链接目标。显式 `--dry-run` 优先于 `--apply`。JSON 预览在未指定输出路径时包含 `content`，指定路径时返回路径、Skill 数量和 dry-run 状态。
+`manifest` 导出 `<available_skills>` XML，供需要静态发现清单的项目级 Agent 使用。清单只含已加载 Skill 的 `name`、`description` 和 Hub `skill_search`/`skill_read`/`skill_files` 使用提示，不包含正文或路径；会分页覆盖整个 catalog。未指定 `--out` 时输出清单到 stdout；指定 `--out` 时默认只预览、不写文件。写入必须同时提供 `--out <path> --apply --yes`，以同目录临时文件加 rename 原子替换普通文件；拒绝目录和符号链接目标；指定输出时先比对真实路径（包括父目录符号链接别名），禁止覆盖输入 catalog 与实际配置文件，默认 Hub 路径同样受保护。显式 `--dry-run` 优先于 `--apply`。JSON 预览在未指定输出路径时包含 `content`，指定路径时返回路径、Skill 数量和 dry-run 状态。
 
 ---
 
@@ -457,6 +458,6 @@ Server instructions 提供精确名直接 fetch、未知先 search/list、附件
 
 ## npm命令包（v0.2.0候选）
 
-`pnpm pack:npm [--name <package-name>]`构建并输出独立tarball及完整路径/integrity/体积/文件数，`published: false`；`pnpm check:npm`生成自己的候选并真实安装验收。四个bin为`skill-hub`、`skill-hub-mcp`、`skill-hub-mcp-http`、`skill-hub-web`。对外不承诺JS库exports；不引入安装脚本或改变已有工具语义。详见[npm发行](../ops/NPM_DISTRIBUTION.md)。
+`pnpm pack:npm [--name <package-name>]`构建并输出独立tarball及完整路径/integrity/体积/文件数，`published: false`；`pnpm check:npm`生成自己的候选并真实安装验收。当前候选包含三个bin：`skill-hub`、`skill-hub-mcp`、`skill-hub-web`；已移除 HTTP 命令，既有0.2.1注册库包不被重写。对外不承诺JS库exports；不引入安装脚本或改变已有工具语义。详见[npm发行](../ops/NPM_DISTRIBUTION.md)。
 
 `publish-npm.yml`复用CI并在标签push时发布；manual dispatch只dry-run。`node scripts/publish-npm.mjs --report <acceptance.json> [--publish]`默认为dry-run；真实写入必须处于官方仓库GitHub Actions匹配版本tag push、有OIDC授权且HEAD已合入main。`check:npm --registry`直接核验官方发布字节并重新安装，见[npm发行](../ops/NPM_DISTRIBUTION.md)。

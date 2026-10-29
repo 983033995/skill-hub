@@ -148,7 +148,7 @@ flowchart LR
 
 ## 明确边界
 
-- **MCP 支持 stdio 和鉴权 Streamable HTTP**。HTTP 面向支持 Bearer 请求头的可信客户端，仅开放三个只读 runtime 工具；OAuth 与公网部署尚未交付。[托管指南 →](docs/ops/REMOTE_MCP.md)
+- **MCP 使用本地 stdio**。当前源码已移除 HTTP MCP 托管入口和命令；已发布 v0.2.1 的历史包不变，本次不提供远端 MCP URL。[传输边界 →](docs/ops/REMOTE_MCP.md)
 - **Web 本地只读且无鉴权**，默认仅监听回环地址；安装/升级等写操作使用 CLI。Markdown 渲染使用 CDN，失败时降级为纯文本。
 - **管理 Skill，不接管 Agent 执行器、知识库或插件授权**。静态审计是启发式扫描，不是安全证明。
 - **不承诺普遍节省比例**。原生发现、真实计费和任务质量依赖宿主实测；草案标签不构成校准后的质量门禁。

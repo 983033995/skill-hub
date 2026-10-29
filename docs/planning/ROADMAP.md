@@ -353,11 +353,18 @@ cli 稳定 ↘ mcp(M3)
 
 ## Phase 26 — Streamable HTTP 托管（2026-10-26）
 
+2026-10-29 更新：HTTP MCP 源码/命令已按用户要求撤回，以下 2026-10-26 验收与发布项为历史记录；当前源码保持 stdio/CLI/Web，未执行新 npm 发布。
+
 - [x] P26-01：共享只读处理器、独立无会话HTTP/SSE入口、Bearer/Host/Origin和资源限制、真实SDK与编译HTTP/stdio回归、托管文档；55文件251测试与本地门禁通过。
-- [ ] 选定托管账号/主机及授权Skill范围后，验收真实HTTPS地址、客户端、token轮换、持久化与备份；与源码实现分开记录。
+- [ ] HTTP 托管部署工作已取消；若未来重新启动，需新决策与明确数据/主机授权。
 - OAuth、多租户及npm发行另行决策，当前保持源码分发。
 
 - [x] P26-02：单包npm候选及CLI/npm exec/stdio/HTTP/Web安装验收，源码private保留，版本0.2.0；有效npm身份和注册库发布另验。
 - [x] P26-03：@zhangheteng/skill-hub@0.2.0手动发布、官方registry字节/integrity回读及安装验收通过。
 
 - [x] P26-04：GitHub Actions OIDC精确信任绑定，v0.2.1真实发布/provenance/registry安装验收通过（run 40319985700）；manual dispatch仅dry-run。
+
+## 2026-10-29 — 当前分支审查问题修复
+
+- 复核范围为 REVIEW-01 的 R1–R7：managed 失败恢复、根 `.git` 保留与事务清理；manifest/评测输入保护；显式 Agent 来源 ID；OpenCode 验收 token；大候选集 usage。
+- 实现和回归进度由 TASK_BOARD 的 FIX-01 跟踪，最终门禁证据写入 PROGRESS；不扩展 HTTP 托管、付费评测或真实客户端/服务变更。

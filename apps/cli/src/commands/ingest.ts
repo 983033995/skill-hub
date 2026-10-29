@@ -8,9 +8,10 @@ import {
   readCatalog,
   scanSkills,
   sourceMappingToProvenance,
+  updateCatalog,
   upsertSkills,
-  writeCatalog,
   type SkillMeta,
+  type Catalog,
 } from "@skill-hub/core";
 import {
   getDefaultHubHome,
@@ -45,9 +46,11 @@ export async function runIngest(options: {
     ? resolveAbsolutePath(options.catalogPath)
     : layout.catalog;
 
-  let catalog;
+  let catalog: Catalog;
+  let previousCatalog: Catalog;
   try {
     catalog = await readCatalog(catalogPath);
+    previousCatalog = catalog;
   } catch (err) {
     const exists = await lstat(catalogPath).catch((e: NodeJS.ErrnoException) => {
       if (e.code === "ENOENT") return null;
@@ -55,8 +58,8 @@ export async function runIngest(options: {
     });
     if (exists) throw err;
     catalog = createEmptyCatalog();
+    previousCatalog = catalog;
   }
-  const previousCatalog = catalog;
   const canonicalDir = resolveAbsolutePath(options.canonicalDir ?? layout.skills);
 
   const scanned: SkillMeta[] = [];
@@ -143,7 +146,15 @@ export async function runIngest(options: {
       ...unresolved,
       ...mat.skipped.filter((s) => s.reason.includes("冲突")).map((s) => s.name),
     ];
-    if (!options.dryRun && updated.length) await writeCatalog(catalogPath, catalog);
+    if (!options.dryRun && updated.length) {
+      const result = await updateCatalog(catalogPath, (current) => {
+        previousCatalog = current;
+        const upserted = upsertSkills(current, catalogSkills);
+        updated = upserted.updated;
+        return upserted.catalog;
+      });
+      catalog = result.catalog;
+    }
   } else {
     const upserted = upsertSkills(catalog, selected, {
       skipOnHashConflict: !options.prefer || options.conflictMode === "skip",
@@ -151,7 +162,18 @@ export async function runIngest(options: {
     catalog = upserted.catalog;
     updated = upserted.updated;
     skippedUpsert = [...unresolved, ...upserted.skipped];
-    if (!options.dryRun && updated.length) await writeCatalog(catalogPath, catalog);
+    if (!options.dryRun && updated.length) {
+      const result = await updateCatalog(catalogPath, (current) => {
+        previousCatalog = current;
+        const upserted = upsertSkills(current, selected, {
+          skipOnHashConflict: !options.prefer || options.conflictMode === "skip",
+        });
+        updated = upserted.updated;
+        skippedUpsert = [...unresolved, ...upserted.skipped];
+        return upserted.catalog;
+      });
+      catalog = result.catalog;
+    }
   }
   const preview = catalog;
 

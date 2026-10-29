@@ -43,11 +43,17 @@ sources: []
   return { configPath, raw };
 }
 
+const cliEntry = path.resolve("apps/cli/dist/index.js");
+
 function cli(...args: string[]) {
+  return cliAt(process.cwd(), ...args);
+}
+
+function cliAt(cwd: string, ...args: string[]) {
   return JSON.parse(
-    execFileSync(process.execPath, ["apps/cli/dist/index.js", "--json", ...args], {
-      cwd: process.cwd(),
-      env: process.env,
+    execFileSync(process.execPath, [cliEntry, "--json", ...args], {
+      cwd,
+      env: { ...process.env, SKILL_HUB_USAGE_LOG: "" },
       encoding: "utf8",
     }),
   );
@@ -102,5 +108,51 @@ describe("Agent Sources across inventory and explicit ingest", () => {
     expect(preview.dryRun).toBe(true);
     expect(() => cli("ingest")).toThrow();
     expect((await readdir(root, { recursive: true })).sort()).toEqual(before);
+  });
+
+  it("ingests an explicitly selected built-in ID through its existing Agent path", async () => {
+    const { configPath, raw } = await fixture();
+    const agentSkills = path.join(root, "legacy-qoder-skills");
+    await mkdir(path.join(agentSkills, "agent-qoder"), { recursive: true });
+    await writeFile(
+      path.join(agentSkills, "agent-qoder", "SKILL.md"),
+      "---\nname: agent-qoder\ndescription: synthetic legacy Agent source\n---\n\nFixture.\n",
+    );
+    const withQoderAgent = raw.replace(
+      "sources: []",
+      `  - id: qoder\n    skills_dir: ${agentSkills}\n    enabled: true\nsources: []`,
+    );
+    await writeFile(configPath, withQoderAgent);
+
+    const before = (await readdir(root, { recursive: true })).sort();
+    const preview = cli("ingest", "--sources", "qoder", "--dry-run");
+
+    expect(preview.sources).toEqual([{ requested: "qoder", path: agentSkills, sourceId: "qoder" }]);
+    expect(preview.scanned).toBe(1);
+    expect(preview.dryRun).toBe(true);
+    expect((await readdir(root, { recursive: true })).sort()).toEqual(before);
+  });
+
+  it("keeps a disabled source mapping from falling back to a same-name CWD directory", async () => {
+    const { configPath, raw } = await fixture();
+    const disabledPath = path.join(root, "disabled-qoder-skills");
+    await mkdir(disabledPath, { recursive: true });
+    await mkdir(path.join(root, "qoder", "cwd-shadow"), { recursive: true });
+    await writeFile(
+      path.join(root, "qoder", "cwd-shadow", "SKILL.md"),
+      "---\nname: cwd-shadow\ndescription: synthetic CWD shadow\n---\n\nFixture.\n",
+    );
+    const withDisabledQoder = raw.replace(
+      "sources: []",
+      `sources:\n  - id: qoder\n    path: ${disabledPath}\n    scope: user\n    enabled: false`,
+    );
+    await writeFile(configPath, withDisabledQoder);
+
+    const preview = cliAt(root, "ingest", "--sources", "qoder", "--dry-run");
+
+    expect(preview.sources).toEqual([
+      { requested: "qoder", path: disabledPath, sourceId: "qoder" },
+    ]);
+    expect(preview.scanned).toBe(0);
   });
 });

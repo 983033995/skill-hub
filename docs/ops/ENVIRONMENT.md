@@ -89,8 +89,6 @@ Public GitHub install/update may clone to a temporary directory. Explicit Jev re
 
 Do not store API keys in committed YAML/JSON. See [MODELS](../architecture/MODELS.md) and [MCP integration](MCP_INTEGRATION.md). GUI hosts may use a different PATH from your shell: use their Node executable and the absolute built MCP entry path.
 
-## Streamable HTTP MCP
+## MCP 传输边界（2026-10-29）
 
-`pnpm mcp:http` starts the separate authenticated MCP endpoint. Required secret: `SKILL_HUB_HTTP_TOKEN`; default listener `127.0.0.1:8788`, fixed three-tool runtime. Use `SKILL_HUB_HTTP_HOST`, `SKILL_HUB_HTTP_PORT` (otherwise platform `PORT`), `SKILL_HUB_HTTP_ALLOWED_HOSTS` and optional `SKILL_HUB_HTTP_ALLOWED_ORIGINS` for hosting. Non-loopback binding requires an explicit Host allowlist. See [REMOTE_MCP](REMOTE_MCP.md) for all settings, storage, TLS and acceptance limits. Web REST and stdio startup are unchanged; public hosting and npm release are not performed automatically.
-
-When a local npm mirror has not synchronized a new version, use the official registry explicitly (for example `npm exec --registry=https://registry.npmjs.org/ --package=@zhangheteng/skill-hub@0.2.1 -- skill-hub version`). Publishing and acceptance do not rewrite personal registry settings.
+当前源码只提供 stdio MCP；HTTP MCP 启动命令与 `SKILL_HUB_HTTP_*` 环境配置已撤回，不再提供远端监听入口。Web 的本地 REST 端点独立保留。已发布0.2.1不被重写；后续源码候选差异见[REMOTE_MCP](REMOTE_MCP.md)。

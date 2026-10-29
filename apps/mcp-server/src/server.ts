@@ -335,7 +335,7 @@ function optionalInteger(args: Record<string, unknown>, key: string): number | u
 }
 
 export async function createSkillHubMcpServer(
-  options: { mode?: "full" | "runtime"; exposure?: "local" | "remote" } = {},
+  options: { mode?: "full" | "runtime" } = {},
 ): Promise<Server> {
   const mode = options.mode ?? process.env.SKILL_HUB_MCP_MODE ?? "full";
   if (mode !== "full" && mode !== "runtime") {
@@ -343,9 +343,6 @@ export async function createSkillHubMcpServer(
       code: "E_CONFIG",
       message: "SKILL_HUB_MCP_MODE 必须为 full 或 runtime",
     });
-  }
-  if (options.exposure === "remote" && mode !== "runtime") {
-    throw new SkillHubError({ code: "E_CONFIG", message: "远端入口仅支持 runtime 模式" });
   }
   const runtimeDescriptions: Record<string, string> = {
     skill_search: "Find relevant Skills from task content; returns metadata only. Default top_k=3.",
@@ -569,27 +566,7 @@ export async function createSkillHubMcpServer(
     }
   }
   server.setRequestHandler(CallToolRequestSchema, (request) =>
-    withUsageScope("mcp", async () => {
-      const result = await handleToolCall(request);
-      if (options.exposure !== "remote") return result;
-      const data = JSON.parse(result.content[0]!.text);
-      if (result.isError) {
-        return textResult({ ok: false, code: data.code, message: "Skill request failed" }, true);
-      }
-      // Remote readers need relative attachment names, not server filesystem metadata.
-      if (request.params.name === "skill_read") delete data.path;
-      if (request.params.name === "skill_search" && data.warning) {
-        data.warning = data.degraded
-          ? "Router degraded; check server-side configuration"
-          : "Index rebuild recommended; check server-side index";
-      }
-      if (request.params.name === "skill_files") {
-        for (const file of data.files) {
-          if (file.type === "blocked") file.reason = "Blocked or unavailable attachment";
-        }
-      }
-      return textResult(data);
-    }),
+    withUsageScope("mcp", () => handleToolCall(request)),
   );
 
   return server;

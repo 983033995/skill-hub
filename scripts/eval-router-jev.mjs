@@ -3,10 +3,11 @@
 import console from "node:console";
 import process from "node:process";
 import { randomUUID } from "node:crypto";
-import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { canonicalizePath } from "../packages/shared/dist/paths.js";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_API_URL = "https://api.typesafe.ai/v1/systemone";
@@ -136,6 +137,22 @@ async function main() {
     return;
   }
   const datasetPath = path.join(repo, "evals/router/recall.v1.json");
+  const catalogPath = path.resolve(options.catalog.trim());
+  if (options.out) {
+    await assertReportDoesNotOverwriteInput(
+      path.resolve(options.out.trim()),
+      catalogPath,
+      datasetPath,
+    );
+  }
+  if (options.preview && options["preview-out"]) {
+    await assertReportDoesNotOverwriteInput(
+      path.resolve(options["preview-out"].trim()),
+      catalogPath,
+      datasetPath,
+      "Preview output",
+    );
+  }
   const dataset = JSON.parse(await readFile(datasetPath, "utf8"));
   const { validateDataset } = await import("./check-router-eval.mjs");
   const datasetValidation = validateDataset(dataset);
@@ -153,7 +170,6 @@ async function main() {
   );
   const inputRate = optionalRate(options["input-usd-per-million"], "input-usd-per-million");
   const outputRate = optionalRate(options["output-usd-per-million"], "output-usd-per-million");
-  const catalogPath = path.resolve(options.catalog.trim());
   const model = options.model.trim();
   const selectedTasks = selectEvaluationTasks(dataset.cases, maxRequests);
   const countKinds = (tasks) =>
@@ -211,19 +227,12 @@ async function main() {
     let previewFileWritten = false;
     if (options["preview-out"]) {
       const previewPath = path.resolve(options["preview-out"].trim());
-      const [canonicalPreviewPath, canonicalCatalogPath, canonicalDatasetPath] = await Promise.all([
-        canonicalizePath(previewPath),
-        canonicalizePath(catalogPath),
-        canonicalizePath(datasetPath),
-      ]);
-      if (
-        canonicalPreviewPath === canonicalCatalogPath ||
-        canonicalPreviewPath === canonicalDatasetPath
-      ) {
-        throw Object.assign(new Error("Preview output must not overwrite the catalog or dataset"), {
-          code: "E_EVAL_OUTPUT",
-        });
-      }
+      await assertReportDoesNotOverwriteInput(
+        previewPath,
+        catalogPath,
+        datasetPath,
+        "Preview output",
+      );
       await preflightReportPath(previewPath);
       await writeReportAtomically(previewPath, `${JSON.stringify(preview, null, 2)}\n`);
       previewFileWritten = true;
@@ -241,6 +250,11 @@ async function main() {
     );
     return;
   }
+  if (options.out) {
+    const outputPath = path.resolve(options.out.trim());
+    await assertReportDoesNotOverwriteInput(outputPath, catalogPath, datasetPath);
+    await preflightReportPath(outputPath);
+  }
   const [{ TypeSafeRouterEngine }, { Bm25Router }] = await Promise.all([
     import("../packages/router/dist/typesafe.js"),
     import("../packages/router/dist/bm25.js"),
@@ -250,7 +264,6 @@ async function main() {
     process.exitCode = 2;
     return;
   }
-  if (options.out) await preflightReportPath(path.resolve(options.out.trim()));
   const bm25 = new Bm25Router();
   const bm25BuildStarted = performance.now();
   await bm25.build(skills);
@@ -587,20 +600,21 @@ async function preflightReportPath(outputPath) {
   }
 }
 
-async function canonicalizePath(value) {
-  let current = path.resolve(value);
-  const missingSegments = [];
-  while (true) {
-    try {
-      const existing = await realpath(current);
-      return path.join(existing, ...missingSegments);
-    } catch (error) {
-      if (error?.code !== "ENOENT") throw error;
-      const parent = path.dirname(current);
-      if (parent === current) throw error;
-      missingSegments.unshift(path.basename(current));
-      current = parent;
-    }
+async function assertReportDoesNotOverwriteInput(
+  outputPath,
+  catalogPath,
+  datasetPath,
+  outputLabel = "Report output",
+) {
+  const [canonicalOutput, canonicalCatalog, canonicalDataset] = await Promise.all([
+    canonicalizePath(outputPath),
+    canonicalizePath(catalogPath),
+    canonicalizePath(datasetPath),
+  ]);
+  if (canonicalOutput === canonicalCatalog || canonicalOutput === canonicalDataset) {
+    throw Object.assign(new Error(`${outputLabel} must not overwrite the catalog or dataset`), {
+      code: "E_EVAL_OUTPUT",
+    });
   }
 }
 

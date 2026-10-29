@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import path from "node:path";
+import { isDistributionSource } from "../../scripts/pack-npm.mjs";
 import { validateNpmRelease } from "../../scripts/publish-npm.mjs";
 
 const manifest = { name: "@zhangheteng/skill-hub", version: "0.2.1" };
@@ -31,5 +33,16 @@ describe("npm publication authorization boundaries", () => {
     for (const version of ["01.2.1", "0.2.1-beta.1", "v0.2.1", "0.2"]) {
       expect(() => validateNpmRelease({ ...manifest, version }, {}, false)).toThrow();
     }
+  });
+});
+
+describe("npm package source selection", () => {
+  it("excludes the retired HTTP MCP source while retaining stdio and Web sources", () => {
+    expect(isDistributionSource(path.join("apps", "mcp-server", "src", "http.ts"))).toBe(false);
+    expect(isDistributionSource(path.join("apps", "mcp-server", "src", "index.ts"))).toBe(true);
+    expect(isDistributionSource(path.join("apps", "web", "src", "index.ts"))).toBe(true);
+    expect(isDistributionSource(path.join("apps", "mcp-server", "src", "server.test.ts"))).toBe(
+      false,
+    );
   });
 });

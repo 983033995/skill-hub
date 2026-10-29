@@ -1,7 +1,7 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { resolveAbsolutePath } from "@skill-hub/shared";
-import { agentSkillSources } from "./agent-sources.js";
+import { agentSkillSources, resolveExplicitAgentSkillSource } from "./agent-sources.js";
 import { defaultHubConfig } from "./config.js";
 
 describe("built-in Agent Skill sources", () => {
@@ -79,5 +79,43 @@ describe("built-in Agent Skill sources", () => {
     expect(sources.some((source) => source.id === "deepseek-harness")).toBe(false);
     expect(sources.some((source) => source.id === "opencode")).toBe(false);
     expect(new Set(sources.map((source) => path.resolve(source.path))).size).toBe(sources.length);
+  });
+
+  it("resolves an explicitly selected built-in ID through an existing same-ID Agent path", () => {
+    const config = defaultHubConfig();
+    config.agents.push({ id: "qoder", skills_dir: "/legacy/qoder-skills", enabled: true });
+
+    expect(agentSkillSources(config, {}).some((source) => source.id === "qoder")).toBe(false);
+    expect(resolveExplicitAgentSkillSource("qoder", config, {})).toMatchObject({
+      id: "qoder",
+      path: "/legacy/qoder-skills",
+      scope: "user",
+      enabled: true,
+    });
+  });
+
+  it("resolves a built-in ID through an Agent that already owns the preset path", () => {
+    const config = defaultHubConfig();
+    config.agents.push({ id: "custom-qoder", skills_dir: "~/.qoder/skills", enabled: false });
+
+    expect(agentSkillSources(config, {}).some((source) => source.id === "qoder")).toBe(false);
+    expect(resolveExplicitAgentSkillSource("qoder", config, {})).toMatchObject({
+      id: "qoder",
+      path: "~/.qoder/skills",
+    });
+  });
+
+  it("keeps explicit disabled source overrides and does not fall back to the preset", () => {
+    const config = defaultHubConfig();
+    const disabled = {
+      id: "qoder",
+      path: "/disabled/qoder-skills",
+      scope: "user" as const,
+      enabled: false,
+    };
+    config.sources = [disabled];
+
+    expect(resolveExplicitAgentSkillSource("qoder", config, {})).toBe(disabled);
+    expect(resolveExplicitAgentSkillSource("unknown", config, {})).toBeUndefined();
   });
 });
